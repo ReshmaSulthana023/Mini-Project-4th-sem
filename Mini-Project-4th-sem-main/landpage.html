@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Hub</title>
+    <link rel="icon" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<!-- ===== LANDING PAGE ===== -->
+<div id="landingPage">
+    <header>
+        <div class="logo-title">
+            <img src="logo.png" alt="Interview Hub Logo">
+            <h1>Interview Hub</h1>
+        </div>
+        <div class="header-actions">
+            <button class="btn-outline" onclick="openLogin()">Log In</button>
+            <button class="btn-primary" onclick="openModal()">Sign Up</button>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="hero-text">
+
+
+
+            <h2>Real Interviews.<br>Real Experiences.<br>Real Confidence.</h2>
+            <p>Access thousands of interview experiences shared by candidates who've been there. Learn what companies actually ask — and walk in prepared.</p>
+            <div class="hero-buttons">
+                <button class="btn-primary large" onclick="openModal()">Get Started Free</button>
+                <button class="btn-ghost large" onclick="openLogin()">Explore Experiences</button>
+            </div>
+
+        </div>
+        <div class="hero-image">
+            <img src="homepageimage.png" alt="Interview Preparation">
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="section-header">
+            <h2>Everything you need to crack interviews</h2>
+            <p>From real experiences to smart filters — we've got you covered.</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📝</div>
+                <h3>Share Experiences</h3>
+                <p>Post your interview experience including rounds, questions, difficulty, and tips to help others.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔍</div>
+                <h3>Smart Search & Filters</h3>
+                <p>Filter by company, role, topic (DSA, System Design, HR), and difficulty level instantly.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💡</div>
+                <h3>Real Insights</h3>
+                <p>Identify patterns, commonly asked questions, and trending topics across top companies.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">👥</div>
+                <h3>Community Driven</h3>
+                <p>Upvote helpful experiences. The best content rises to the top — always relevant, always fresh.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-section">
+                <h2 class="logo-foot">InterviewHub</h2>
+                <p>A platform to explore and share real interview experiences. Learn smarter, prepare better.</p>
+            </div>
+            <div class="footer-section">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#" onclick="openLogin()">Explore</a></li>
+                    <li><a href="#" onclick="openModal()">Sign Up</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Resources</h3>
+                <ul>
+                    <li><a href="#">Top Companies</a></li>
+                    <li><a href="#">DSA Topics</a></li>
+                    <li><a href="#">Interview Tips</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Contact</h3>
+                <p>Email: support@interviewhub.com</p>
+                <p>Location: India</p>
+                <div class="social-icons">
+                    <a href="#"><i class="fab fa-linkedin"></i></a>
+                    <a href="#"><i class="fab fa-twitter"></i></a>
+                    <a href="#"><i class="fab fa-github"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 InterviewHub. All rights reserved.</p>
+        </div>
+    </footer>
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- SIGNUP MODAL -->
+<div id="signupModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <div class="modal-logo"><img src="logo.png" alt="Logo"><span>InterviewHub</span></div>
+        <h2>Create Account</h2>
+        <input type="text" id="signupName" placeholder="Full Name">
+        <input type="email" id="signupEmail" placeholder="Email Address">
+        <input type="password" id="signupPassword" placeholder="Password">
+        <input type="password" id="signupConfirm" placeholder="Confirm Password">
+        <button onclick="handleSignup()">Create Account</button>
+        <p class="switch">Already have an account? <span onclick="switchToLogin()">Log In</span></p>
+    </div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div id="loginModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeLogin()">&times;</span>
+        <div class="modal-logo"><img src="logo.png" alt="Logo"><span>InterviewHub</span></div>
+        <h2>Welcome Back</h2>
+        <input type="email" id="loginEmail" placeholder="Email Address">
+        <input type="password" id="loginPassword" placeholder="Password">
+        <div class="extra-options">
+            <a href="#" onclick="openForgot()">Forgot Password?</a>
+        </div>
+        <button class="login-btn" onclick="handleLogin()">Log In</button>
+        <div class="divider"><span>OR</span></div>
+        <div class="google-login">
+            <button onclick="handleGoogleLogin()">
+                <img src="https://img.icons8.com/color/16/google-logo.png" alt="Google">
+                Continue with Google
+            </button>
+        </div>
+        <p class="switch">Don't have an account? <span onclick="switchToSignup()">Sign Up</span></p>
+    </div>
+</div>
+
+<!-- FORGOT PASSWORD MODAL -->
+<div id="forgotModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeForgot()">&times;</span>
+        <div class="modal-logo"><img src="logo.png" alt="Logo"><span>InterviewHub</span></div>
+        <h2>Reset Password</h2>
+        <p style="color:#888;font-size:14px;margin-bottom:15px;">Enter your email to receive a reset link.</p>
+        <input type="email" placeholder="Enter your email">
+        <button class="login-btn">Send Reset Link</button>
+        <p class="switch"><span onclick="backToLogin()">← Back to Login</span></p>
+    </div>
+</div>
+
+<!-- POST EXPERIENCE MODAL -->
+<div id="postModal" class="modal">
+    <div class="modal-content wide-modal">
+        <span class="close" onclick="closePostModal()">&times;</span>
+        <h2>📝 Share Your Interview Experience</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Company Name *</label>
+                <input type="text" id="postCompany" placeholder="e.g. Google, Amazon, TCS">
+            </div>
+            <div class="form-group">
+                <label>Job Role *</label>
+                <input type="text" id="postRole" placeholder="e.g. Software Engineer, Data Analyst">
+            </div>
+            <div class="form-group">
+                <label>Interview Type</label>
+                <select id="postType">
+                    <option value="">Select type</option>
+                    <option>On-Campus</option>
+                    <option>Off-Campus</option>
+                    <option>Referral</option>
+                    <option>Walk-in</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Difficulty Level</label>
+                <select id="postDifficulty">
+                    <option value="">Select difficulty</option>
+                    <option>Easy</option>
+                    <option>Medium</option>
+                    <option>Hard</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Outcome</label>
+                <select id="postOutcome">
+                    <option value="">Select outcome</option>
+                    <option>Selected ✅</option>
+                    <option>Rejected ❌</option>
+                    <option>Pending ⏳</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Topics Covered</label>
+                <div class="tags-row" id="topicTags">
+                    <span class="tag" onclick="toggleTag(this)">DSA</span>
+                    <span class="tag" onclick="toggleTag(this)">System Design</span>
+                    <span class="tag" onclick="toggleTag(this)">HR</span>
+                    <span class="tag" onclick="toggleTag(this)">OOP</span>
+                    <span class="tag" onclick="toggleTag(this)">DBMS</span>
+                    <span class="tag" onclick="toggleTag(this)">OS</span>
+                    <span class="tag" onclick="toggleTag(this)">Networking</span>
+                    <span class="tag" onclick="toggleTag(this)">Aptitude</span>
+                </div>
+            </div>
+        </div>
+        <div class="form-group full">
+            <label>Number of Rounds</label>
+            <input type="number" id="postRounds" placeholder="e.g. 4" min="1" max="10">
+        </div>
+        <div class="form-group full">
+            <label>Describe Each Round *</label>
+            <textarea id="postRoundDetails" rows="5" placeholder="Round 1 (Online Test): 60 MCQs on aptitude and coding...&#10;Round 2 (Technical): Asked about arrays, trees, dynamic programming...&#10;Round 3 (HR): Discussed about projects, strengths, weakness..."></textarea>
+        </div>
+        <div class="form-group full">
+            <label>Interview Questions Asked</label>
+            <textarea id="postQuestions" rows="4" placeholder="1. Reverse a linked list&#10;2. Design a URL shortener&#10;3. Tell me about yourself..."></textarea>
+        </div>
+        <div class="form-group full">
+            <label>Preparation Tips & Advice</label>
+            <textarea id="postTips" rows="3" placeholder="Focus on arrays and strings. Practice LeetCode medium problems. Know your resume well..."></textarea>
+        </div>
+        <div class="form-group full">
+            <label>Attach Resume (Optional)</label>
+            <input type="file" id="postResume" accept=".pdf,.doc,.docx" class="file-input">
+        </div>
+        <button class="submit-btn" onclick="submitPost()">🚀 Submit Experience</button>
+    </div>
+</div>
+
+<!-- VIEW EXPERIENCE MODAL -->
+<div id="viewModal" class="modal">
+    <div class="modal-content wide-modal" id="viewModalContent">
+    </div>
+</div>
+
+<!-- ===== DASHBOARD (shown after login) ===== -->
+<div id="dashboard" style="display:none;">
+    <nav class="dash-nav">
+        <div class="nav-left">
+            <img src="logo.png" alt="Logo">
+            <span>InterviewHub</span>
+        </div>
+        <div class="nav-center">
+            <button class="nav-tab active" onclick="showTab('explore')"><i class="fas fa-compass"></i> Explore</button>
+            <button class="nav-tab" onclick="showTab('my-posts')"><i class="fas fa-file-alt"></i> My Posts</button>
+            <button class="nav-tab" onclick="showTab('profile')"><i class="fas fa-user"></i> Profile</button>
+        </div>
+        <div class="nav-right">
+            <span id="userGreeting" class="user-greeting"></span>
+            <button class="btn-primary" onclick="openPostModal()"><i class="fas fa-plus"></i> Share Experience</button>
+        </div>
+    </nav>
+
+    <!-- EXPLORE TAB -->
+    <div id="exploreTab" class="tab-content active-tab">
+        <div class="explore-header">
+            <h2>Explore Interview Experiences</h2>
+            <p>Learn from real experiences shared by the community</p>
+        </div>
+        <div class="search-filter-bar">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search by company, role, or topic..." oninput="filterPosts()">
+            </div>
+            <select id="filterCompany" onchange="filterPosts()">
+                <option value="">All Companies</option>
+                <option>Google</option>
+                <option>Amazon</option>
+                <option>Microsoft</option>
+                <option>Flipkart</option>
+                <option>TCS</option>
+                <option>Infosys</option>
+                <option>Wipro</option>
+            </select>
+            <select id="filterRole" onchange="filterPosts()">
+                <option value="">All Roles</option>
+                <option>Software Engineer</option>
+                <option>Data Analyst</option>
+                <option>Product Manager</option>
+                <option>DevOps Engineer</option>
+                <option>ML Engineer</option>
+            </select>
+            <select id="filterDifficulty" onchange="filterPosts()">
+                <option value="">All Levels</option>
+                <option>Easy</option>
+                <option>Medium</option>
+                <option>Hard</option>
+            </select>
+            <select id="filterTopic" onchange="filterPosts()">
+                <option value="">All Topics</option>
+                <option>DSA</option>
+                <option>System Design</option>
+                <option>HR</option>
+                <option>OOP</option>
+                <option>DBMS</option>
+            </select>
+        </div>
+        <div class="posts-grid" id="postsGrid"></div>
+    </div>
+
+    <!-- MY POSTS TAB -->
+    <div id="myPostsTab" class="tab-content">
+        <div class="explore-header">
+            <h2>My Shared Experiences</h2>
+            <p>Experiences you've contributed to the community</p>
+        </div>
+        <div class="posts-grid" id="myPostsGrid"></div>
+    </div>
+
+    <!-- PROFILE TAB -->
+    <div id="profileTab" class="tab-content">
+        <div class="profile-container">
+            <div class="profile-header">
+                <h2>My Profile</h2>
+            </div>
+            <div class="profile-card">
+                <div class="profile-avatar">
+                    <i class="fas fa-user-circle"></i>
+                </div>
+                <div class="profile-info">
+                    <div class="profile-field">
+                        <label>Username</label>
+                        <p id="profileUsername"></p>
+                    </div>
+                    <div class="profile-field">
+                        <label>Email</label>
+                        <p id="profileEmail"></p>
+                    </div>
+                    <div class="profile-field">
+                        <label>Total Posts</label>
+                        <p id="profilePostCount">0</p>
+                    </div>
+                    <div class="profile-stats">
+                        <div class="stat-item">
+                            <span class="stat-number" id="profileUpvotes">0</span>
+                            <span class="stat-label">Total Upvotes</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="profileExperiences">0</span>
+                            <span class="stat-label">Experiences Shared</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST NOTIFICATION -->
+<div id="toast" class="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
