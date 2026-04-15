@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const passport = require("passport");
+require("dotenv").config();
 
 const authRoutes = require("./routes/auth");
 const postRoutes = require("./routes/posts");
@@ -22,7 +23,7 @@ app.get("/api/test", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 
-mongoose.connect("mongodb://myAtlasDBUser:myatlas123@ac-kfj5pnm-shard-00-00.1lbbfol.mongodb.net:27017,ac-kfj5pnm-shard-00-01.1lbbfol.mongodb.net:27017,ac-kfj5pnm-shard-00-02.1lbbfol.mongodb.net:27017/?ssl=true&replicaSet=atlas-huyyvf-shard-0&authSource=admin&appName=myAtlasClusterEDU")
+mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("MongoDB Connected"))
     .catch(err => console.log("DB Error:", err));
     

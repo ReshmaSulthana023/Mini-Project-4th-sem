@@ -5,7 +5,7 @@ const User = require("../models/User");
 const passport = require("passport");
 
 const router = express.Router();
-const JWT_SECRET = "your-secret-key-change-this";
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this";
 
 // ===== SIGNUP =====
 router.post("/signup", async (req, res) => {
@@ -80,12 +80,16 @@ router.get("/google",
 router.get("/google/callback",
     passport.authenticate("google", { session: false }),
     (req, res) => {
-        const token = jwt.sign(
-            { id: req.user._id, name: req.user.name, email: req.user.email },
-            JWT_SECRET,
-            { expiresIn: "7d" }
-        );
-        res.redirect(`http://localhost:3000/?token=${token}&name=${req.user.name}&email=${req.user.email}`);
+        try {
+            const token = jwt.sign(
+                { id: req.user._id, name: req.user.name, email: req.user.email },
+                JWT_SECRET,
+                { expiresIn: "7d" }
+            );
+            res.redirect(`http://localhost:8080/landpage.html?token=${token}&name=${req.user.name}&email=${req.user.email}`);
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
     }
 );
 
