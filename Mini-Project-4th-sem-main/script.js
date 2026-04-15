@@ -1,4 +1,4 @@
-const API = "http://localhost:5000/api";
+const API = "http://127.0.0.1:5000/api";
 
 // ===== STATE =====
 let currentUser = null;
@@ -76,51 +76,31 @@ async function handleLogin() {
     }
 }
 
-function handleGoogleLogin() {
-    window.location.href = "http://localhost:5000/api/auth/google";
-}
 
-window.onload = () => {
-    const params = new URLSearchParams(window.location.search);
-    
-    // Handle Google OAuth redirect
-    const token = params.get("token");
-    const name = params.get("name");
-    const email = params.get("email");
-    
-    if (token) {
-        localStorage.setItem("token", token);
-        if (name) localStorage.setItem("userName", name);
-        if (email) localStorage.setItem("userEmail", email);
-        
-        // Decode and set current user
-        try {
-            const payload = JSON.parse(atob(token.split(".")[1]));
-            currentUser = { name: payload.name || name, email: payload.email || email };
-            document.getElementById("landingPage").style.display = "none";
-            document.getElementById("dashboard").style.display = "block";
-            enterDashboard();
-            showToast("Google login successful! 🎉", "success");
-        } catch (err) {
-            console.error("Token decode error:", err);
-        }
-        
-        // Clean URL
-        history.replaceState({}, "", window.location.pathname);
-        return;
-    }
 
-    // Check for existing token
+window.onload = async () => {
     const savedToken = localStorage.getItem("token");
-    
+
     if (savedToken) {
         try {
-            const payload = JSON.parse(atob(savedToken.split(".")[1]));
-            currentUser = { name: payload.name, email: payload.email };
-            document.getElementById("landingPage").style.display = "none";
-            enterDashboard();
+            const res = await fetch(`${API}/auth/me`, {
+                headers: {
+                    Authorization: `Bearer ${savedToken}`
+                }
+            });
+
+            if (res.ok) {
+                const user = await res.json();
+                currentUser = user;
+
+                document.getElementById("landingPage").style.display = "none";
+                enterDashboard();
+            } else {
+                localStorage.removeItem("token");
+            }
+
         } catch (err) {
-            console.log("Token decode error:", err);
+            console.log("Token validation failed", err);
             localStorage.removeItem("token");
         }
     }
@@ -174,17 +154,6 @@ function openLogin() {
 }
 function closeLogin() { document.getElementById("loginModal").style.display = "none"; }
 
-function openForgot() {
-    document.getElementById("loginModal").style.display = "none";
-    document.getElementById("forgotModal").style.display = "block";
-}
-function closeForgot() { document.getElementById("forgotModal").style.display = "none"; }
-
-function backToLogin() {
-    document.getElementById("forgotModal").style.display = "none";
-    clearLoginForm();
-    document.getElementById("loginModal").style.display = "block";
-}
 
 function switchToLogin() {
     document.getElementById("signupModal").style.display = "none";
@@ -205,7 +174,7 @@ function closeViewModal() { document.getElementById("viewModal").style.display =
 
 // Close modals on outside click
 window.onclick = function(e) {
-    const modals = ["signupModal","loginModal","forgotModal","postModal","viewModal"];
+    const modals = ["signupModal","loginModal","postModal","viewModal"];
     modals.forEach(id => {
         const m = document.getElementById(id);
         if (e.target === m) m.style.display = "none";
@@ -343,16 +312,23 @@ async function renderMyPosts() {
 
 function createPostCard(post) {
     try {
+        // 1. Define postId first to fix the ReferenceError
         const postId = post._id || post.id;
+
+        // 2. Logic for your original outcome and difficulty colors
         const outcomeClass = post.outcome?.includes("✅") ? "outcome-selected"
             : post.outcome?.includes("❌") ? "outcome-rejected" : "outcome-pending";
 
         const diffColor = post.difficulty === "Hard" ? "#ef4444" : post.difficulty === "Medium" ? "#f59e0b" : "#22c55e";
 
+        // 3. Logic for tags and upvote active state
         const topicsHtml = (post.topics || []).map(t => `<span class="topic-chip">${t}</span>`).join("");
+        const isUpvoted = currentUser && post.upvotedBy && post.upvotedBy.includes(currentUser.email);
+        const activeClass = isUpvoted ? "active" : "";
         
-        let dateStr = post.date || new Date(post.createdAt).toLocaleDateString();
+        let dateStr = post.date || (post.createdAt ? new Date(post.createdAt).toLocaleDateString() : "Recent");
 
+        // 4. Returning your ORIGINAL HTML structure
         return `
         <div class="post-card" onclick="viewPost('${postId}')">
             <div class="post-card-top">
@@ -371,7 +347,7 @@ function createPostCard(post) {
             </div>
             <div class="post-card-bottom">
                 <span class="posted-by">by ${post.postedBy || "Anonymous"}</span>
-                <button class="upvote-btn" onclick="upvote(event, '${postId}')">
+                <button class="upvote-btn ${activeClass}" onclick="upvote(event, '${postId}')">
                     <i class="fas fa-arrow-up"></i> ${post.upvotes || 0}
                 </button>
             </div>
@@ -381,7 +357,6 @@ function createPostCard(post) {
         return "";
     }
 }
-
 // ===== VIEW EXPERIENCE =====
 function viewPost(id) {
     const post = allPosts.find(p => p._id === id || p.id === id);
@@ -424,19 +399,27 @@ function viewPost(id) {
 // ===== UPVOTE =====
 async function upvote(e, id) {
     e.stopPropagation();
+    const btn = e.currentTarget;
+    
+    // Prevent double-clicking while request is pending
+    if (btn.classList.contains('loading')) return;
+    btn.classList.add('loading');
+
     try {
         const res = await fetch(`${API}/posts/${id}/upvote`, {
-            method: "PUT"
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: currentUser.email })
         });
 
         if (res.ok) {
-            loadPosts();
-        } else {
-            console.error("Upvote failed:", res.status);
+            // Refresh posts to show updated count and active state
+            await loadPosts(); 
         }
     } catch (err) {
         console.error("Error upvoting:", err);
-        showToast("Error updating upvote", "error");
+    } finally {
+        btn.classList.remove('loading');
     }
 }
 

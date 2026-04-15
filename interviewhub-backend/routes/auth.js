@@ -93,4 +93,33 @@ router.get("/google/callback",
     }
 );
 
+// ===== GET CURRENT USER (IMPORTANT 🔥)
+// routes/posts.js
+router.put("/:id/upvote", async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const post = await Post.findById(req.params.id);
+
+        if (!post) return res.status(404).json({ msg: "Post not found" });
+
+        const index = post.upvotedBy.indexOf(userId);
+
+        if (index > -1) {
+            // User already upvoted -> Remove it (Toggle off)
+            post.upvotedBy.splice(index, 1);
+        } else {
+            // User hasn't upvoted -> Add it (Toggle on)
+            post.upvotedBy.push(userId);
+        }
+
+        // Always set count based on array length to prevent bugs
+        post.upvotes = post.upvotedBy.length;
+        
+        await post.save();
+        res.json(post);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

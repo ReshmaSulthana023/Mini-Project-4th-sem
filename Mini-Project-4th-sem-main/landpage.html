@@ -135,33 +135,15 @@
         <h2>Welcome Back</h2>
         <input type="email" id="loginEmail" placeholder="Email Address">
         <input type="password" id="loginPassword" placeholder="Password">
-        <div class="extra-options">
-            <a href="#" onclick="openForgot()">Forgot Password?</a>
-        </div>
+        
         <button class="login-btn" onclick="handleLogin()">Log In</button>
         <div class="divider"><span>OR</span></div>
-        <div class="google-login">
-            <button onclick="handleGoogleLogin()">
-                <img src="https://img.icons8.com/color/16/google-logo.png" alt="Google">
-                Continue with Google
-            </button>
-        </div>
+        
         <p class="switch">Don't have an account? <span onclick="switchToSignup()">Sign Up</span></p>
     </div>
 </div>
 
-<!-- FORGOT PASSWORD MODAL -->
-<div id="forgotModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeForgot()">&times;</span>
-        <div class="modal-logo"><img src="logo.png" alt="Logo"><span>InterviewHub</span></div>
-        <h2>Reset Password</h2>
-        <p style="color:#888;font-size:14px;margin-bottom:15px;">Enter your email to receive a reset link.</p>
-        <input type="email" placeholder="Enter your email">
-        <button class="login-btn">Send Reset Link</button>
-        <p class="switch"><span onclick="backToLogin()">← Back to Login</span></p>
-    </div>
-</div>
+
 
 <!-- POST EXPERIENCE MODAL -->
 <div id="postModal" class="modal">

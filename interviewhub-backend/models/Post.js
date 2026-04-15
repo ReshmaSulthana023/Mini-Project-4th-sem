@@ -16,7 +16,7 @@ const postSchema = new mongoose.Schema({
     postedBy: String,
     userId: String,
     upvotes: { type: Number, default: 0 },
-    createdAt: { type: Date, default: Date.now }
+    upvotedBy: { type: [String], default: [] }
 });
 
 module.exports = mongoose.model("Post", postSchema);
