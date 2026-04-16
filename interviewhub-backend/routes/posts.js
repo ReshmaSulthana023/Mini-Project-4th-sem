@@ -1,6 +1,7 @@
 
 const express = require("express");
 const router = express.Router();
+<<<<<<< HEAD
 const Post = require("../models/Post");
 const { verifyToken } = require("../middleware/auth");
 
@@ -21,12 +22,27 @@ router.post("/", verifyToken, async (req, res) => {
         const post = new Post(postData);
         await post.save();
         res.json({ msg: "Post created successfully", post });
+=======
+
+const Post = require("../models/Post");
+
+// CREATE POST
+router.post("/", async (req, res) => {
+    try {
+        const post = new Post(req.body);
+        await post.save();
+        res.json(post);
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
+<<<<<<< HEAD
 // GET ALL POSTS (public)
+=======
+// GET ALL POSTS
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
 router.get("/", async (req, res) => {
     try {
         const posts = await Post.find().sort({ createdAt: -1 });
@@ -46,6 +62,7 @@ router.get("/my/:email", async (req, res) => {
     }
 });
 
+<<<<<<< HEAD
 // GET SINGLE POST
 router.get("/:id", async (req, res) => {
     try {
@@ -125,10 +142,24 @@ router.put("/:id/upvote", async (req, res) => {
         const userEmail = req.query.email || req.body.email || "anonymous";
         
         const post = await Post.findById(req.params.id);
+=======
+// UPVOTE A POST
+router.put("/:id/upvote", async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ msg: "User ID missing" });
+        }
+
+        const post = await Post.findById(req.params.id);
+
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         if (!post) {
             return res.status(404).json({ msg: "Post not found" });
         }
 
+<<<<<<< HEAD
         const hasUpvoted = post.upvotedBy && post.upvotedBy.includes(userEmail);
 
         let updatedPost;
@@ -156,6 +187,30 @@ router.put("/:id/upvote", async (req, res) => {
             res.json({ msg: "Upvoted successfully", post: updatedPost, upvoted: true });
         }
     } catch (err) {
+=======
+        // 🔥 ensure array exists
+        if (!post.upvotedBy) {
+            post.upvotedBy = [];
+        }
+
+        // 🔁 TOGGLE LOGIC
+        if (post.upvotedBy.includes(userId)) {
+            // ❌ already upvoted → REMOVE
+            post.upvotes -= 1;
+            post.upvotedBy = post.upvotedBy.filter(u => u !== userId);
+        } else {
+            // ✅ not upvoted → ADD
+            post.upvotes += 1;
+            post.upvotedBy.push(userId);
+        }
+
+        await post.save();
+
+        res.json(post);
+
+    } catch (err) {
+        console.error("UPVOTE ERROR:", err);
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         res.status(500).json({ error: err.message });
     }
 });

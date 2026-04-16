@@ -2,8 +2,11 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const passport = require("passport");
+<<<<<<< HEAD
 const session = require("express-session");
 const path = require("path");
+=======
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
 require("dotenv").config();
 
 const authRoutes = require("./routes/auth");
@@ -11,6 +14,7 @@ const postRoutes = require("./routes/posts");
 
 const app = express();
 
+<<<<<<< HEAD
 // Middleware
 app.use(cors({
     origin: ["http://localhost:5000", "http://localhost:8080", "http://localhost:3000", "*"],
@@ -90,3 +94,28 @@ connectDB().then(() => {
     console.error("Failed to start server:", err);
     process.exit(1);
 });
+=======
+app.use(cors());
+app.use(express.json());
+
+require("./config/passport");
+app.use(passport.initialize());
+
+// Test endpoint
+app.get("/api/test", (req, res) => {
+    res.json({ msg: "Server is working" });
+});
+
+app.use("/api/auth", authRoutes);
+app.use("/api/posts", postRoutes);
+
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log("MongoDB Connected"))
+    .catch(err => console.log("DB Error:", err));
+    
+app.listen(5000, () => console.log("Server running on port 5000"));
+
+// app.get("/api", (req, res) => {
+//     res.send("API is running 🚀");
+// });
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72

@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 const API = "http://localhost:5000/api";
+=======
+const API = "http://127.0.0.1:5000/api";
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
 
 // ===== STATE =====
 let currentUser = null;
 let allPosts = [];
 let currentTab = "explore";
+<<<<<<< HEAD
 let currentEditingPostId = null;
 
 // ===== AUTH FUNCTIONS =====
@@ -14,10 +19,21 @@ async function handleSignup() {
     const confirm = document.getElementById("signupConfirm").value;
 
     // Validation
+=======
+
+// ===== AUTH FUNCTIONS =====
+async function handleSignup() {
+    const name = document.getElementById("signupName").value;
+    const email = document.getElementById("signupEmail").value;
+    const password = document.getElementById("signupPassword").value;
+    const confirm = document.getElementById("signupConfirm").value;
+
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     if (!name || !email || !password || !confirm) {
         return showToast("Please fill all fields", "error");
     }
     
+<<<<<<< HEAD
     if (name.length < 3) {
         return showToast("Name must be at least 3 characters", "error");
     }
@@ -30,13 +46,18 @@ async function handleSignup() {
         return showToast("Password must be at least 6 characters", "error");
     }
     
+=======
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     if (password !== confirm) {
         return showToast("Passwords don't match", "error");
     }
 
     try {
+<<<<<<< HEAD
         showToast("Creating account...", "");
         
+=======
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         const res = await fetch(`${API}/auth/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -47,6 +68,7 @@ async function handleSignup() {
 
         if (res.ok) {
             localStorage.setItem("token", data.token);
+<<<<<<< HEAD
             if (data.user) {
                 localStorage.setItem("userName", data.user.name);
                 localStorage.setItem("userEmail", data.user.email);
@@ -61,17 +83,34 @@ async function handleSignup() {
     } catch (err) {
         console.error("Signup error:", err);
         showToast("Connection error. Make sure the server is running on http://localhost:5000", "error");
+=======
+            currentUser = data.user;
+            closeModal();
+            showToast(`Welcome, ${data.user.name}! 🎉`, "success");
+            enterDashboard();
+        } else {
+            showToast(data.msg || "Signup failed", "error");
+        }
+    } catch (err) {
+        showToast("Connection error. Please check if server is running.", "error");
+        console.error("Signup error:", err);
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     }
 }
 
 async function handleLogin() {
+<<<<<<< HEAD
     const email = document.getElementById("loginEmail").value.trim();
+=======
+    const email = document.getElementById("loginEmail").value;
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     const password = document.getElementById("loginPassword").value;
 
     if (!email || !password) {
         return showToast("Please fill all fields", "error");
     }
 
+<<<<<<< HEAD
     if (!email.includes("@")) {
         return showToast("Please enter a valid email", "error");
     }
@@ -79,6 +118,9 @@ async function handleLogin() {
     try {
         showToast("Logging in...", "");
         
+=======
+    try {
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         const res = await fetch(`${API}/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -89,6 +131,7 @@ async function handleLogin() {
 
         if (res.ok) {
             localStorage.setItem("token", data.token);
+<<<<<<< HEAD
             if (data.user) {
                 localStorage.setItem("userName", data.user.name);
                 localStorage.setItem("userEmail", data.user.email);
@@ -181,6 +224,48 @@ window.onload = () => {
         }
     } else {
         console.log("No saved token, showing landing page");
+=======
+            currentUser = data.user;
+            closeLogin();
+            showToast(`Welcome back, ${data.user.name}! 👋`, "success");
+            enterDashboard();
+        } else {
+            showToast(data.msg || "Login failed", "error");
+        }
+    } catch (err) {
+        showToast("Connection error. Please check if server is running.", "error");
+        console.error("Login error:", err);
+    }
+}
+
+
+
+window.onload = async () => {
+    const savedToken = localStorage.getItem("token");
+
+    if (savedToken) {
+        try {
+            const res = await fetch(`${API}/auth/me`, {
+                headers: {
+                    Authorization: `Bearer ${savedToken}`
+                }
+            });
+
+            if (res.ok) {
+                const user = await res.json();
+                currentUser = user;
+
+                document.getElementById("landingPage").style.display = "none";
+                enterDashboard();
+            } else {
+                localStorage.removeItem("token");
+            }
+
+        } catch (err) {
+            console.log("Token validation failed", err);
+            localStorage.removeItem("token");
+        }
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     }
 };
 
@@ -232,6 +317,10 @@ function openLogin() {
 }
 function closeLogin() { document.getElementById("loginModal").style.display = "none"; }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
 function switchToLogin() {
     document.getElementById("signupModal").style.display = "none";
     clearLoginForm();
@@ -249,6 +338,7 @@ function closePostModal() { document.getElementById("postModal").style.display =
 
 function closeViewModal() { document.getElementById("viewModal").style.display = "none"; }
 
+<<<<<<< HEAD
 // ===== EDIT MODAL FUNCTIONS =====
 function openEditModal(postId) {
     const post = allPosts.find(p => p._id === postId);
@@ -378,6 +468,11 @@ async function deletePost() {
 // Close modals on outside click
 window.onclick = function(e) {
     const modals = ["signupModal","loginModal","postModal","viewModal","editModal"];
+=======
+// Close modals on outside click
+window.onclick = function(e) {
+    const modals = ["signupModal","loginModal","postModal","viewModal"];
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     modals.forEach(id => {
         const m = document.getElementById(id);
         if (e.target === m) m.style.display = "none";
@@ -407,16 +502,23 @@ async function submitPost() {
         questions: document.getElementById("postQuestions").value,
         tips: document.getElementById("postTips").value,
         postedBy: currentUser.name,
+<<<<<<< HEAD
         userId: currentUser.email.toLowerCase()  // Normalize to lowercase
     };
 
     console.log("📤 Submitting post with userId:", postData.userId, "postedBy:", postData.postedBy);
 
+=======
+        userId: currentUser.email
+    };
+
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     if (!postData.company || !postData.role || !postData.roundDetails) {
         return showToast("Please fill Company, Role, and Round Details", "error");
     }
 
     try {
+<<<<<<< HEAD
         const token = localStorage.getItem("token");
         const headers = { "Content-Type": "application/json" };
         if (token) {
@@ -433,12 +535,25 @@ async function submitPost() {
 
         if (res.ok) {
             console.log("✅ Post created successfully!");
+=======
+        const res = await fetch(`${API}/posts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(postData)
+        });
+
+        if (res.ok) {
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
             showToast("Posted successfully 🚀", "success");
             closePostModal();
             resetPostForm();
             loadPosts();
         } else {
+<<<<<<< HEAD
             showToast(data.msg || "Failed to post", "error");
+=======
+            showToast("Failed to post", "error");
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         }
     } catch (err) {
         console.error("Error posting:", err);
@@ -469,6 +584,7 @@ async function loadPosts() {
         }
         const data = await res.json();
         allPosts = data || [];
+<<<<<<< HEAD
         
         // Debug: Log all posts with their userIds
         console.log("📋 All Posts loaded:", allPosts.length);
@@ -477,6 +593,8 @@ async function loadPosts() {
             console.log(`  - ${p.company} (${p.role}) by userId: "${p.userId}"`);
         });
         
+=======
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         renderPosts(data);
     } catch (err) {
         console.error("Error loading posts:", err);
@@ -499,7 +617,11 @@ function renderPosts(posts) {
     }
 
     try {
+<<<<<<< HEAD
         grid.innerHTML = list.map(post => createPostCard(post, false)).join("");
+=======
+        grid.innerHTML = list.map(post => createPostCard(post)).join("");
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     } catch (err) {
         console.error("Error rendering posts:", err);
         grid.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Error loading posts</h3></div>`;
@@ -508,6 +630,7 @@ function renderPosts(posts) {
 
 async function renderMyPosts() {
     try {
+<<<<<<< HEAD
         if (!currentUser || !currentUser.email) {
             console.warn("⚠️ currentUser not set or email missing:", currentUser);
             const grid = document.getElementById("myPostsGrid");
@@ -516,6 +639,8 @@ async function renderMyPosts() {
         }
 
         console.log("📥 Loading my posts for:", currentUser.email);
+=======
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         const res = await fetch(`${API}/posts/my/${currentUser.email}`);
         if (!res.ok) {
             const grid = document.getElementById("myPostsGrid");
@@ -532,8 +657,12 @@ async function renderMyPosts() {
             return;
         }
 
+<<<<<<< HEAD
         console.log("✅ Loaded", myPosts.length, "posts. Current user:", currentUser.email);
         grid.innerHTML = myPosts.map(post => createPostCard(post, true)).join("");
+=======
+        grid.innerHTML = myPosts.map(post => createPostCard(post)).join("");
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     } catch (err) {
         console.error("Error loading my posts:", err);
         const grid = document.getElementById("myPostsGrid");
@@ -541,14 +670,24 @@ async function renderMyPosts() {
     }
 }
 
+<<<<<<< HEAD
 function createPostCard(post, isMyPosts = false) {
     try {
         const postId = post._id || post.id;
+=======
+function createPostCard(post) {
+    try {
+        // 1. Define postId first to fix the ReferenceError
+        const postId = post._id || post.id;
+
+        // 2. Logic for your original outcome and difficulty colors
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         const outcomeClass = post.outcome?.includes("✅") ? "outcome-selected"
             : post.outcome?.includes("❌") ? "outcome-rejected" : "outcome-pending";
 
         const diffColor = post.difficulty === "Hard" ? "#ef4444" : post.difficulty === "Medium" ? "#f59e0b" : "#22c55e";
 
+<<<<<<< HEAD
         const topicsHtml = (post.topics || []).map(t => `<span class="topic-chip">${t}</span>`).join("");
         
         let dateStr = post.date || new Date(post.createdAt).toLocaleDateString();
@@ -573,6 +712,16 @@ function createPostCard(post, isMyPosts = false) {
             </div>
         ` : "";
 
+=======
+        // 3. Logic for tags and upvote active state
+        const topicsHtml = (post.topics || []).map(t => `<span class="topic-chip">${t}</span>`).join("");
+        const isUpvoted = currentUser && post.upvotedBy && post.upvotedBy.includes(currentUser.email);
+        const activeClass = isUpvoted ? "active" : "";
+        
+        let dateStr = post.date || (post.createdAt ? new Date(post.createdAt).toLocaleDateString() : "Recent");
+
+        // 4. Returning your ORIGINAL HTML structure
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         return `
         <div class="post-card" onclick="viewPost('${postId}')">
             <div class="post-card-top">
@@ -589,10 +738,16 @@ function createPostCard(post, isMyPosts = false) {
                 </div>
                 <div class="post-topics">${topicsHtml}</div>
             </div>
+<<<<<<< HEAD
             ${actionButtons}
             <div class="post-card-bottom">
                 <span class="posted-by">by ${post.postedBy || "Anonymous"}</span>
                 <button class="upvote-btn" onclick="upvote(event, '${postId}')" style="${upvoteButtonStyle}" title="${hasUpvoted ? 'Remove upvote' : 'Upvote this experience'}">
+=======
+            <div class="post-card-bottom">
+                <span class="posted-by">by ${post.postedBy || "Anonymous"}</span>
+                <button class="upvote-btn ${activeClass}" onclick="upvote(event, '${postId}')">
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
                     <i class="fas fa-arrow-up"></i> ${post.upvotes || 0}
                 </button>
             </div>
@@ -602,6 +757,7 @@ function createPostCard(post, isMyPosts = false) {
         return "";
     }
 }
+<<<<<<< HEAD
 
 // Quick delete without opening edit modal
 async function deletePostQuick(postId) {
@@ -635,6 +791,8 @@ async function deletePostQuick(postId) {
     }
 }
 
+=======
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
 // ===== VIEW EXPERIENCE =====
 function viewPost(id) {
     const post = allPosts.find(p => p._id === id || p.id === id);
@@ -674,6 +832,7 @@ function viewPost(id) {
     }
 }
 
+<<<<<<< HEAD
 // ===== UPVOTE/UNUPVOTE =====
 async function upvote(e, id) {
     e.stopPropagation();
@@ -700,6 +859,32 @@ async function upvote(e, id) {
     } catch (err) {
         console.error("Error upvoting:", err);
         showToast("Error updating upvote", "error");
+=======
+// ===== UPVOTE =====
+async function upvote(e, id) {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    
+    // Prevent double-clicking while request is pending
+    if (btn.classList.contains('loading')) return;
+    btn.classList.add('loading');
+
+    try {
+        const res = await fetch(`${API}/posts/${id}/upvote`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: currentUser.email })
+        });
+
+        if (res.ok) {
+            // Refresh posts to show updated count and active state
+            await loadPosts(); 
+        }
+    } catch (err) {
+        console.error("Error upvoting:", err);
+    } finally {
+        btn.classList.remove('loading');
+>>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     }
 }
 
