@@ -1,63 +1,510 @@
-<<<<<<< HEAD
 const API = "http://localhost:5000/api";
-=======
-const API = "http://127.0.0.1:5000/api";
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
+
+// ===== AUTOCOMPLETE CONSTANTS (MUST BE AT TOP) =====
+const PREDEFINED_COMPANIES = [
+    "Google",
+    "Amazon",
+    "Microsoft",
+    "Apple",
+    "Meta",
+    "Netflix",
+    "Adobe",
+    "Oracle",
+    "Salesforce",
+    "IBM",
+    "TCS",
+    "Infosys",
+    "Wipro",
+    "Accenture",
+    "Deloitte",
+    "Capgemini",
+    "Cognizant",
+    "HCL",
+    "Zoho",
+    "Flipkart",
+    "Swiggy",
+    "Zomato",
+    "PhonePe",
+    "Paytm",
+    "Uber",
+    "Ola",
+    "Barclays"
+];
+
+const PREDEFINED_ROLES = [
+    "Software Engineer",
+    "SDE",
+    "SDE Intern",
+    "Backend Developer",
+    "Frontend Developer",
+    "Full Stack Developer",
+    "Data Analyst",
+    "Data Engineer",
+    "Business Analyst",
+    "QA Engineer",
+    "DevOps Engineer",
+    "Cloud Engineer",
+    "Machine Learning Engineer",
+    "AI Engineer",
+    "Product Manager",
+    "UI/UX Designer",
+    "Support Engineer",
+    "System Engineer",
+    "Cybersecurity Analyst"
+];
 
 // ===== STATE =====
 let currentUser = null;
 let allPosts = [];
 let currentTab = "explore";
-<<<<<<< HEAD
 let currentEditingPostId = null;
+let currentViewMode = "listing";
+let currentDetailsPostId = null;
+let currentListingTab = "explore";
+let currentListingScrollY = 0;
+
+const SHARE_AUTOCOMPLETE_STATE = {
+    shareCompany: { activeIndex: -1 },
+    shareRole: { activeIndex: -1 }
+};
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function formatExperienceDate(post) {
+    const sourceDate = post?.date || post?.createdAt;
+    if (!sourceDate) return "Recently";
+
+    const parsedDate = new Date(sourceDate);
+    if (Number.isNaN(parsedDate.getTime())) return "Recently";
+
+    return parsedDate.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+    });
+}
+
+function getCompanyInitials(company) {
+    if (!company) return "IH";
+    return company
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(word => word[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+}
+
+function getOutcomeClass(outcome) {
+    if (outcome?.includes("✅")) return "outcome-selected";
+    if (outcome?.includes("❌")) return "outcome-rejected";
+    return "outcome-pending";
+}
+
+function getSimilarityScore(basePost, candidatePost) {
+    let score = 0;
+
+    if (!basePost || !candidatePost || basePost._id === candidatePost._id) {
+        return -1;
+    }
+
+    const baseCompany = (basePost.company || "").toLowerCase();
+    const candidateCompany = (candidatePost.company || "").toLowerCase();
+    const baseRole = (basePost.role || "").toLowerCase();
+    const candidateRole = (candidatePost.role || "").toLowerCase();
+
+    if (baseCompany && candidateCompany && baseCompany === candidateCompany) score += 6;
+    if (baseRole && candidateRole && baseRole === candidateRole) score += 4;
+    if (baseRole && candidateRole && (baseRole.includes(candidateRole) || candidateRole.includes(baseRole))) score += 2;
+
+    const baseTopics = new Set((basePost.topics || []).map(topic => topic.toLowerCase()));
+    (candidatePost.topics || []).forEach(topic => {
+        if (baseTopics.has(topic.toLowerCase())) score += 2;
+    });
+
+    if (basePost.difficulty && candidatePost.difficulty && basePost.difficulty === candidatePost.difficulty) score += 1;
+    if (basePost.type && candidatePost.type && basePost.type === candidatePost.type) score += 1;
+
+    return score;
+}
+
+function renderCompactTopicChips(topics = [], maxVisible = 4) {
+    const visibleTopics = (topics || []).slice(0, maxVisible);
+    const remainingCount = Math.max((topics || []).length - visibleTopics.length, 0);
+    const topicHtml = visibleTopics.map(topic => `<span class="topic-chip">${escapeHtml(topic)}</span>`).join("");
+    const moreHtml = remainingCount > 0 ? `<span class="topic-chip topic-chip-more">+${remainingCount} more</span>` : "";
+    return `${topicHtml}${moreHtml}`;
+}
+
+function setActiveListingView(tabName) {
+    document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active-tab"));
+    document.querySelectorAll(".nav-tab").forEach(b => b.classList.remove("active"));
+
+    const tab = document.getElementById(tabName === "my-posts" ? "myPostsTab" : tabName === "profile" ? "profileTab" : "exploreTab");
+    if (tab) tab.classList.add("active-tab");
+
+    const navTabs = document.querySelectorAll(".nav-tab");
+    if (tabName === "explore" && navTabs[0]) navTabs[0].classList.add("active");
+    if (tabName === "my-posts" && navTabs[1]) navTabs[1].classList.add("active");
+    if (tabName === "profile" && navTabs[2]) navTabs[2].classList.add("active");
+}
+
+function renderExperienceRecommendations(basePost) {
+    const list = document.getElementById("recommendationsList");
+    if (!list) return;
+
+    const recommendations = (allPosts || [])
+        .map(post => ({ post, score: getSimilarityScore(basePost, post) }))
+        .filter(item => item.score >= 0)
+        .sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            const upvotesA = a.post.upvotes || 0;
+            const upvotesB = b.post.upvotes || 0;
+            if (upvotesB !== upvotesA) return upvotesB - upvotesA;
+            const dateA = new Date(a.post.createdAt || 0).getTime();
+            const dateB = new Date(b.post.createdAt || 0).getTime();
+            return dateB - dateA;
+        })
+        .slice(0, 4);
+
+    if (!recommendations.length) {
+        list.innerHTML = `<div class="recommendation-empty">No similar experiences yet.</div>`;
+        return;
+    }
+
+    list.innerHTML = recommendations.map(({ post }) => {
+        const outcomeClass = getOutcomeClass(post.outcome);
+        return `
+            <button class="recommendation-card-item" onclick="viewPost('${post._id || post.id}')">
+                <div class="recommendation-card-head">
+                    <span class="recommendation-company">${post.company || "N/A"}</span>
+                    <span class="outcome-badge ${outcomeClass}">${post.outcome || "Pending"}</span>
+                </div>
+                <div class="recommendation-role">${post.role || "N/A"}</div>
+                <div class="recommendation-meta">${post.difficulty || "Medium"} • ${post.rounds || "-"} rounds</div>
+            </button>
+        `;
+    }).join("");
+}
+
+function renderExperienceDetails(post) {
+    if (!post) return;
+
+    document.getElementById("detailsCompanyMark").textContent = getCompanyInitials(post.company);
+    document.getElementById("detailsCompany").textContent = post.company || "N/A";
+    document.getElementById("detailsRole").textContent = post.role || "N/A";
+    document.getElementById("detailsType").textContent = post.type || "N/A";
+    document.getElementById("detailsDifficulty").textContent = post.difficulty || "N/A";
+    document.getElementById("detailsRounds").textContent = post.rounds || "N/A";
+    document.getElementById("detailsPostedBy").textContent = post.postedBy || "Anonymous";
+    document.getElementById("detailsOutcome").textContent = post.outcome || "Pending";
+    document.getElementById("detailsOutcome").className = `outcome-badge ${getOutcomeClass(post.outcome)}`;
+    document.getElementById("detailsDate").textContent = formatExperienceDate(post);
+    document.getElementById("detailsUpvotesCount").textContent = post.upvotes || 0;
+
+    document.getElementById("detailsRoundDetails").textContent = post.roundDetails || "-";
+    document.getElementById("detailsTips").textContent = post.tips || "-";
+
+    const topicsContainer = document.getElementById("detailsTopics");
+    if (topicsContainer) {
+        topicsContainer.innerHTML = (post.topics || []).length
+            ? (post.topics || []).map(topic => `<span class="topic-chip">${topic}</span>`).join("")
+            : `<span class="recommendation-empty">No topics listed.</span>`;
+    }
+
+    const resourcesContainer = document.getElementById("detailsResources");
+    if (resourcesContainer) {
+        resourcesContainer.innerHTML = post.resources && post.resources.trim()
+            ? escapeHtml(post.resources).replace(/\n/g, "<br>")
+            : "-";
+    }
+
+    renderExperienceRecommendations(post);
+}
+
+function openExperienceDetails(postId) {
+    const post = allPosts.find(p => (p._id || p.id) === postId);
+    if (!post) return;
+
+    currentDetailsPostId = postId;
+    currentListingTab = currentTab || "explore";
+    currentListingScrollY = window.scrollY || 0;
+    currentViewMode = "details";
+
+    document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active-tab"));
+    document.getElementById("experienceDetailsPage")?.classList.add("active-tab");
+    renderExperienceDetails(post);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function backToListing() {
+    currentViewMode = "listing";
+    document.getElementById("experienceDetailsPage")?.classList.remove("active-tab");
+    setActiveListingView(currentListingTab);
+
+    window.scrollTo({ top: currentListingScrollY || 0, behavior: "smooth" });
+}
+
+function closeShareAutocomplete(dropdownId, inputId) {
+    const dropdown = document.getElementById(dropdownId);
+    if (dropdown) {
+        dropdown.innerHTML = "";
+        dropdown.style.display = "none";
+    }
+
+    if (inputId && SHARE_AUTOCOMPLETE_STATE[inputId]) {
+        SHARE_AUTOCOMPLETE_STATE[inputId].activeIndex = -1;
+    }
+}
+
+function updateShareAutocompleteActive(dropdownId, activeIndex) {
+    const dropdown = document.getElementById(dropdownId);
+    if (!dropdown) return;
+
+    const items = Array.from(dropdown.querySelectorAll(".autocomplete-item"));
+    items.forEach((item, index) => {
+        item.classList.toggle("active", index === activeIndex);
+        if (index === activeIndex) {
+            item.scrollIntoView({ block: "nearest" });
+        }
+    });
+}
+
+function filterShareAutocomplete(inputId, dropdownId, sourceList, showOnEmpty = false) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+
+    if (!input || !dropdown) {
+        return;
+    }
+
+    const searchTerm = input.value.toLowerCase().trim();
+    const matches = searchTerm
+        ? sourceList.filter(item => item.toLowerCase().includes(searchTerm))
+        : (showOnEmpty ? sourceList.slice() : []);
+
+    SHARE_AUTOCOMPLETE_STATE[inputId] = {
+        activeIndex: -1,
+        items: matches,
+        dropdownId
+    };
+
+    if (!searchTerm && !showOnEmpty) {
+        closeShareAutocomplete(dropdownId, inputId);
+        return;
+    }
+
+    if (!matches.length) {
+        dropdown.innerHTML = '<div class="autocomplete-empty">No matches found</div>';
+        dropdown.style.display = "block";
+        return;
+    }
+
+    dropdown.innerHTML = matches.map((item, index) =>
+        `<div class="autocomplete-item" data-value="${escapeHtml(item)}" data-index="${index}" onmousedown="selectShareAutocomplete(event, '${inputId}', '${dropdownId}', this)">${escapeHtml(item)}</div>`
+    ).join("");
+    dropdown.style.display = "block";
+}
+
+function filterShareCompanyAutocomplete(inputId, dropdownId, showOnEmpty = false) {
+    filterShareAutocomplete(inputId, dropdownId, PREDEFINED_COMPANIES, showOnEmpty);
+}
+
+function filterShareRoleAutocomplete(inputId, dropdownId, showOnEmpty = false) {
+    filterShareAutocomplete(inputId, dropdownId, PREDEFINED_ROLES, showOnEmpty);
+}
+
+function selectShareAutocomplete(event, inputId, dropdownId, element) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.value = element.getAttribute("data-value") || element.textContent.trim();
+    }
+    closeShareAutocomplete(dropdownId, inputId);
+}
+
+function handleShareAutocompleteKeydown(event, inputId, dropdownId) {
+    const state = SHARE_AUTOCOMPLETE_STATE[inputId];
+    const dropdown = document.getElementById(dropdownId);
+    if (!state || !dropdown) {
+        return;
+    }
+
+    const items = Array.from(dropdown.querySelectorAll(".autocomplete-item"));
+    if (!items.length) {
+        if (event.key === "Escape") {
+            closeShareAutocomplete(dropdownId, inputId);
+        }
+        return;
+    }
+
+    if (event.key === "ArrowDown") {
+        event.preventDefault();
+        const nextIndex = (state.activeIndex + 1) % items.length;
+        state.activeIndex = nextIndex;
+        updateShareAutocompleteActive(dropdownId, nextIndex);
+    } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        const nextIndex = state.activeIndex <= 0 ? items.length - 1 : state.activeIndex - 1;
+        state.activeIndex = nextIndex;
+        updateShareAutocompleteActive(dropdownId, nextIndex);
+    } else if (event.key === "Enter") {
+        if (state.activeIndex >= 0 && items[state.activeIndex]) {
+            event.preventDefault();
+            selectShareAutocomplete(null, inputId, dropdownId, items[state.activeIndex]);
+        }
+    } else if (event.key === "Escape") {
+        closeShareAutocomplete(dropdownId, inputId);
+    }
+}
+
+function initializeShareAutocomplete() {
+    [
+        { inputId: "shareCompany", dropdownId: "shareCompanyDropdown" },
+        { inputId: "shareRole", dropdownId: "shareRoleDropdown" }
+    ].forEach(({ inputId, dropdownId }) => {
+        const input = document.getElementById(inputId);
+        if (!input) {
+            return;
+        }
+
+        input.addEventListener("keydown", event => handleShareAutocompleteKeydown(event, inputId, dropdownId));
+        input.addEventListener("blur", () => {
+            setTimeout(() => closeShareAutocomplete(dropdownId, inputId), 150);
+        });
+    });
+}
+
+// Initialize autocomplete after page loads
+document.addEventListener("DOMContentLoaded", initializeShareAutocomplete);
+
+function clampShareRoundsInput() {
+    const roundsInput = document.getElementById("shareRounds");
+    if (!roundsInput) {
+        return;
+    }
+
+    const numericValue = parseInt(roundsInput.value, 10);
+    const maxValue = parseInt(roundsInput.max || "15", 10);
+
+    if (Number.isNaN(numericValue) || numericValue < 1) {
+        roundsInput.value = 1;
+        return;
+    }
+
+    roundsInput.value = Math.min(numericValue, Number.isNaN(maxValue) ? 15 : maxValue);
+}
+
+function handleShareRoundsKeydown(event) {
+    const allowedKeys = [
+        "Backspace",
+        "Delete",
+        "Tab",
+        "Escape",
+        "Enter",
+        "Home",
+        "End",
+        "ArrowLeft",
+        "ArrowRight",
+        "ArrowUp",
+        "ArrowDown"
+    ];
+
+    const roundsInput = document.getElementById("shareRounds");
+
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+        if (!roundsInput) {
+            return;
+        }
+
+        const currentValue = parseInt(roundsInput.value, 10);
+        const maxValue = parseInt(roundsInput.max || "15", 10);
+        const safeCurrent = Number.isNaN(currentValue) ? 1 : currentValue;
+        const nextValue = event.key === "ArrowUp" ? safeCurrent + 1 : safeCurrent - 1;
+        roundsInput.value = Math.min(Math.max(nextValue, 1), Number.isNaN(maxValue) ? 15 : maxValue);
+        return;
+    }
+
+    if (allowedKeys.includes(event.key)) {
+        return;
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+        return;
+    }
+
+    if (!/^[0-9]$/.test(event.key)) {
+        event.preventDefault();
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const roundsInput = document.getElementById("shareRounds");
+    if (!roundsInput) {
+        return;
+    }
+
+    roundsInput.addEventListener("keydown", handleShareRoundsKeydown);
+    roundsInput.addEventListener("blur", clampShareRoundsInput);
+    roundsInput.addEventListener("change", clampShareRoundsInput);
+});
 
 // ===== AUTH FUNCTIONS =====
 async function handleSignup() {
+    console.log("🔵 Signup clicked");
     const name = document.getElementById("signupName").value.trim();
     const email = document.getElementById("signupEmail").value.trim();
     const password = document.getElementById("signupPassword").value;
     const confirm = document.getElementById("signupConfirm").value;
 
+    console.log("Form values:", { name, email, password, confirm });
+
     // Validation
-=======
-
-// ===== AUTH FUNCTIONS =====
-async function handleSignup() {
-    const name = document.getElementById("signupName").value;
-    const email = document.getElementById("signupEmail").value;
-    const password = document.getElementById("signupPassword").value;
-    const confirm = document.getElementById("signupConfirm").value;
-
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     if (!name || !email || !password || !confirm) {
-        return showToast("Please fill all fields", "error");
+        const msg = "Please fill all fields";
+        console.error("❌ " + msg);
+        alert(msg);
+        return;
     }
     
-<<<<<<< HEAD
     if (name.length < 3) {
-        return showToast("Name must be at least 3 characters", "error");
+        const msg = "Name must be at least 3 characters";
+        alert(msg);
+        return;
     }
 
     if (!email.includes("@")) {
-        return showToast("Please enter a valid email", "error");
+        const msg = "Please enter a valid email";
+        alert(msg);
+        return;
     }
     
     if (password.length < 6) {
-        return showToast("Password must be at least 6 characters", "error");
+        const msg = "Password must be at least 6 characters";
+        alert(msg);
+        return;
     }
     
-=======
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     if (password !== confirm) {
-        return showToast("Passwords don't match", "error");
+        const msg = "Passwords do not match";
+        alert(msg);
+        return;
     }
-
+    
     try {
-<<<<<<< HEAD
-        showToast("Creating account...", "");
-        
-=======
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
+        console.log("📡 Sending signup request to", `${API}/auth/signup`);
         const res = await fetch(`${API}/auth/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -65,10 +512,11 @@ async function handleSignup() {
         });
 
         const data = await res.json();
+        console.log("✅ Response received:", data);
 
         if (res.ok) {
+            console.log("✅ Signup successful");
             localStorage.setItem("token", data.token);
-<<<<<<< HEAD
             if (data.user) {
                 localStorage.setItem("userName", data.user.name);
                 localStorage.setItem("userEmail", data.user.email);
@@ -78,49 +526,37 @@ async function handleSignup() {
             showToast(`Welcome, ${data.user.name}! 🎉`, "success");
             setTimeout(() => enterDashboard(), 500);
         } else {
+            console.error("❌ Signup failed:", data);
             showToast(data.msg || data.error || "Signup failed", "error");
         }
     } catch (err) {
-        console.error("Signup error:", err);
-        showToast("Connection error. Make sure the server is running on http://localhost:5000", "error");
-=======
-            currentUser = data.user;
-            closeModal();
-            showToast(`Welcome, ${data.user.name}! 🎉`, "success");
-            enterDashboard();
-        } else {
-            showToast(data.msg || "Signup failed", "error");
-        }
-    } catch (err) {
-        showToast("Connection error. Please check if server is running.", "error");
-        console.error("Signup error:", err);
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
+        console.error("Connection error:", err);
+        showToast("Connection error. Make sure the server is running", "error");
     }
 }
 
 async function handleLogin() {
-<<<<<<< HEAD
+    console.log("🔵 Login clicked");
     const email = document.getElementById("loginEmail").value.trim();
-=======
-    const email = document.getElementById("loginEmail").value;
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     const password = document.getElementById("loginPassword").value;
 
+    console.log("Login email:", email);
+
     if (!email || !password) {
-        return showToast("Please fill all fields", "error");
+        const msg = "Please fill all fields";
+        alert(msg);
+        return;
     }
 
-<<<<<<< HEAD
     if (!email.includes("@")) {
-        return showToast("Please enter a valid email", "error");
+        const msg = "Please enter a valid email";
+        alert(msg);
+        return;
     }
 
     try {
-        showToast("Logging in...", "");
+        console.log("📡 Sending login request to", `${API}/auth/login`);
         
-=======
-    try {
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         const res = await fetch(`${API}/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -128,10 +564,11 @@ async function handleLogin() {
         });
 
         const data = await res.json();
+        console.log("✅ Response received:", data);
 
         if (res.ok) {
+            console.log("✅ Login successful");
             localStorage.setItem("token", data.token);
-<<<<<<< HEAD
             if (data.user) {
                 localStorage.setItem("userName", data.user.name);
                 localStorage.setItem("userEmail", data.user.email);
@@ -141,11 +578,12 @@ async function handleLogin() {
             showToast(`Welcome back, ${data.user.name}! 👋`, "success");
             setTimeout(() => enterDashboard(), 500);
         } else {
+            console.error("❌ Login failed:", data);
             showToast(data.msg || data.error || "Login failed", "error");
         }
     } catch (err) {
-        console.error("Login error:", err);
-        showToast("Connection error. Make sure the server is running on http://localhost:5000", "error");
+        console.error("Connection error:", err);
+        showToast("Connection error. Make sure the server is running", "error");
     }
 }
 
@@ -224,48 +662,6 @@ window.onload = () => {
         }
     } else {
         console.log("No saved token, showing landing page");
-=======
-            currentUser = data.user;
-            closeLogin();
-            showToast(`Welcome back, ${data.user.name}! 👋`, "success");
-            enterDashboard();
-        } else {
-            showToast(data.msg || "Login failed", "error");
-        }
-    } catch (err) {
-        showToast("Connection error. Please check if server is running.", "error");
-        console.error("Login error:", err);
-    }
-}
-
-
-
-window.onload = async () => {
-    const savedToken = localStorage.getItem("token");
-
-    if (savedToken) {
-        try {
-            const res = await fetch(`${API}/auth/me`, {
-                headers: {
-                    Authorization: `Bearer ${savedToken}`
-                }
-            });
-
-            if (res.ok) {
-                const user = await res.json();
-                currentUser = user;
-
-                document.getElementById("landingPage").style.display = "none";
-                enterDashboard();
-            } else {
-                localStorage.removeItem("token");
-            }
-
-        } catch (err) {
-            console.log("Token validation failed", err);
-            localStorage.removeItem("token");
-        }
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     }
 };
 
@@ -309,6 +705,7 @@ function openModal() {
     clearSignupForm();
     document.getElementById("signupModal").style.display = "block"; 
 }
+
 function closeModal() { document.getElementById("signupModal").style.display = "none"; }
 
 function openLogin() { 
@@ -317,10 +714,6 @@ function openLogin() {
 }
 function closeLogin() { document.getElementById("loginModal").style.display = "none"; }
 
-<<<<<<< HEAD
-=======
-
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
 function switchToLogin() {
     document.getElementById("signupModal").style.display = "none";
     clearLoginForm();
@@ -333,12 +726,134 @@ function switchToSignup() {
     document.getElementById("signupModal").style.display = "block";
 }
 
-function openPostModal() { document.getElementById("postModal").style.display = "block"; }
-function closePostModal() { document.getElementById("postModal").style.display = "none"; }
+function openPostModal() {
+    // Check if user is authenticated
+    const token = localStorage.getItem("token");
+    const userName = localStorage.getItem("userName");
+    
+    if (token && currentUser) {
+        // User is authenticated - navigate to Share Experience page
+        navigateToShareExperience();
+    } else {
+        // User is not authenticated - show signup modal
+        showToast("Please log in to share your experience", "info");
+        openModal();
+    }
+}
+function closePostModal() { 
+    document.getElementById("postModal").style.display = "none";
+    // Clear autocomplete dropdowns
+    document.getElementById("postCompanyDropdown").classList.remove("active");
+    document.getElementById("postRoleDropdown").classList.remove("active");
+}
+
+// ===== SHARE EXPERIENCE PAGE FUNCTIONS =====
+function navigateToShareExperience() {
+    // Hide dashboard and show share experience page
+    document.getElementById("dashboard").style.display = "none";
+    document.getElementById("shareExperiencePage").style.display = "block";
+    // Reset form fields
+    resetShareExperienceForm();
+}
+
+function backToDashboard() {
+    // Hide share experience page and show dashboard
+    document.getElementById("shareExperiencePage").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+    // Ensure we're on the explore tab
+    showTab("explore");
+    showToast("Returned to dashboard", "info");
+}
+
+function resetShareExperienceForm() {
+    // Reset input and select fields
+    ["shareCompany","shareRole","shareRounds","shareRoundDetails","shareTips","shareResources"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+    const roundsInput = document.getElementById("shareRounds");
+    if (roundsInput) roundsInput.value = 1;
+    ["shareType","shareDifficulty","shareOutcome"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.selectedIndex = 0;
+    });
+    // Reset tags
+    document.querySelectorAll("#shareTopicTags .tag").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll("#shareRoundTags .tag").forEach(t => t.classList.remove("active"));
+    // Reset file input
+    const fileInput = document.getElementById("shareResume");
+    if (fileInput) fileInput.value = "";
+} 
+
+async function submitShareExperience() {
+    // Collect form data from the Share Experience page
+    const postData = {
+        company: document.getElementById("shareCompany").value.trim(),
+        role: document.getElementById("shareRole").value.trim(),
+        type: document.getElementById("shareType").value,
+        difficulty: document.getElementById("shareDifficulty").value,
+        outcome: document.getElementById("shareOutcome").value,
+        topics: getActiveShareTags(),
+        roundsFaced: getActiveShareRounds(),
+        resources: document.getElementById("shareResources").value,
+        rounds: document.getElementById("shareRounds").value,
+        roundDetails: document.getElementById("shareRoundDetails").value,
+        questions: document.getElementById("shareRoundDetails").value,
+        tips: document.getElementById("shareTips").value,
+        postedBy: currentUser.name,
+        userId: currentUser.email.toLowerCase()  // Normalize to lowercase
+    }; 
+
+    console.log("📤 Submitting share experience with userId:", postData.userId, "postedBy:", postData.postedBy);
+
+    // Validation
+    if (!postData.company || !postData.role || !postData.roundDetails) {
+        return showToast("Please fill Company, Role, and Round Details", "error");
+    }
+
+    try {
+        const token = localStorage.getItem("token");
+        const headers = { "Content-Type": "application/json" };
+        if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const res = await fetch(`${API}/posts`, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(postData)
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            console.log("✅ Experience posted successfully!");
+            showToast("Your experience has been shared! 🎉", "success");
+            resetShareExperienceForm();
+            // Redirect back to dashboard after 1 second
+            setTimeout(() => {
+                backToDashboard();
+                loadPosts();  // Refresh posts to show the new one
+            }, 1000);
+        } else {
+            showToast(data.msg || "Failed to share your experience", "error");
+        }
+    } catch (err) {
+        console.error("Error sharing experience:", err);
+        showToast("Connection error. Please try again.", "error");
+    }
+}
+
+function getActiveShareTags() {
+    return Array.from(document.querySelectorAll("#shareTopicTags .tag.active")).map(tag => tag.textContent);
+}
+
+function getActiveShareRounds() {
+    return Array.from(document.querySelectorAll("#shareRoundTags .tag.active")).map(tag => tag.textContent);
+}
 
 function closeViewModal() { document.getElementById("viewModal").style.display = "none"; }
 
-<<<<<<< HEAD
 // ===== EDIT MODAL FUNCTIONS =====
 function openEditModal(postId) {
     const post = allPosts.find(p => p._id === postId);
@@ -362,6 +877,7 @@ function openEditModal(postId) {
     document.getElementById("editRoundDetails").value = post.roundDetails || "";
     document.getElementById("editQuestions").value = post.questions || "";
     document.getElementById("editTips").value = post.tips || "";
+    document.getElementById("editResources").value = post.resources || "";
 
     // Set topics
     document.querySelectorAll("#editTopicTags .tag").forEach(tag => tag.classList.remove("active"));
@@ -371,11 +887,17 @@ function openEditModal(postId) {
     });
 
     document.getElementById("editModal").style.display = "block";
+    // Clear autocomplete dropdowns
+    document.getElementById("editCompanyDropdown").classList.remove("active");
+    document.getElementById("editRoleDropdown").classList.remove("active");
 }
 
 function closeEditModal() {
     document.getElementById("editModal").style.display = "none";
     currentEditingPostId = null;
+    // Clear autocomplete dropdowns
+    document.getElementById("editCompanyDropdown").classList.remove("active");
+    document.getElementById("editRoleDropdown").classList.remove("active");
 }
 
 function getEditActiveTags() {
@@ -395,6 +917,7 @@ async function submitEditPost() {
         difficulty: document.getElementById("editDifficulty").value,
         outcome: document.getElementById("editOutcome").value,
         topics: getEditActiveTags(),
+        resources: document.getElementById("editResources").value,
         rounds: document.getElementById("editRounds").value,
         roundDetails: document.getElementById("editRoundDetails").value,
         questions: document.getElementById("editQuestions").value,
@@ -468,11 +991,6 @@ async function deletePost() {
 // Close modals on outside click
 window.onclick = function(e) {
     const modals = ["signupModal","loginModal","postModal","viewModal","editModal"];
-=======
-// Close modals on outside click
-window.onclick = function(e) {
-    const modals = ["signupModal","loginModal","postModal","viewModal"];
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     modals.forEach(id => {
         const m = document.getElementById(id);
         if (e.target === m) m.style.display = "none";
@@ -497,28 +1015,22 @@ async function submitPost() {
         difficulty: document.getElementById("postDifficulty").value,
         outcome: document.getElementById("postOutcome").value,
         topics: getActiveTags(),
+        resources: document.getElementById("postResources").value,
         rounds: document.getElementById("postRounds").value,
         roundDetails: document.getElementById("postRoundDetails").value,
         questions: document.getElementById("postQuestions").value,
         tips: document.getElementById("postTips").value,
         postedBy: currentUser.name,
-<<<<<<< HEAD
         userId: currentUser.email.toLowerCase()  // Normalize to lowercase
     };
 
     console.log("📤 Submitting post with userId:", postData.userId, "postedBy:", postData.postedBy);
 
-=======
-        userId: currentUser.email
-    };
-
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     if (!postData.company || !postData.role || !postData.roundDetails) {
         return showToast("Please fill Company, Role, and Round Details", "error");
     }
 
     try {
-<<<<<<< HEAD
         const token = localStorage.getItem("token");
         const headers = { "Content-Type": "application/json" };
         if (token) {
@@ -535,25 +1047,12 @@ async function submitPost() {
 
         if (res.ok) {
             console.log("✅ Post created successfully!");
-=======
-        const res = await fetch(`${API}/posts`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(postData)
-        });
-
-        if (res.ok) {
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
             showToast("Posted successfully 🚀", "success");
             closePostModal();
             resetPostForm();
             loadPosts();
         } else {
-<<<<<<< HEAD
             showToast(data.msg || "Failed to post", "error");
-=======
-            showToast("Failed to post", "error");
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         }
     } catch (err) {
         console.error("Error posting:", err);
@@ -562,7 +1061,7 @@ async function submitPost() {
 }
 
 function resetPostForm() {
-    ["postCompany","postRole","postRounds","postRoundDetails","postQuestions","postTips"].forEach(id => {
+    ["postCompany","postRole","postRounds","postRoundDetails","postQuestions","postTips","postResources"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
@@ -573,64 +1072,286 @@ function resetPostForm() {
     document.querySelectorAll("#topicTags .tag").forEach(t => t.classList.remove("active"));
 }
 
+// ===== TEST DATA FUNCTION =====
+function createTestPosts() {
+    allPosts = [
+        {
+            _id: "test1",
+            company: "Google",
+            role: "SDE",
+            type: "On-Campus",
+            difficulty: "Hard",
+            outcome: "Selected ✅",
+            topics: ["DSA", "System Design"],
+            rounds: 4,
+            roundDetails: "4 technical rounds, HR round",
+            questions: "LeetCode hard problems",
+            tips: "Practice coding daily",
+            postedBy: "Test User",
+            userId: "test@example.com",
+            upvotes: 15,
+            upvotedBy: [],
+            createdAt: new Date()
+        },
+        {
+            _id: "test2",
+            company: "Amazon",
+            role: "SDE",
+            type: "Off-Campus",
+            difficulty: "Medium",
+            outcome: "Selected ✅",
+            topics: ["DSA"],
+            rounds: 3,
+            roundDetails: "3 coding rounds, 1 bar raiser",
+            questions: "Tree and graph problems",
+            tips: "Focus on DS",
+            postedBy: "Test User 2",
+            userId: "test2@example.com",
+            upvotes: 8,
+            upvotedBy: [],
+            createdAt: new Date()
+        },
+        {
+            _id: "test3",
+            company: "Microsoft",
+            role: "SDE",
+            type: "Referral",
+            difficulty: "Easy",
+            outcome: "Pending ⏳",
+            topics: ["DSA", "OOP"],
+            rounds: 2,
+            roundDetails: "2 technical rounds",
+            questions: "Basic DSA",
+            tips: "Read CLRS",
+            postedBy: "Test User 3",
+            userId: "test3@example.com",
+            upvotes: 5,
+            upvotedBy: [],
+            createdAt: new Date()
+        },
+        {
+            _id: "test4",
+            company: "Barclays",
+            role: "Data Analyst",
+            type: "On-Campus",
+            difficulty: "Medium",
+            outcome: "Rejected ❌",
+            topics: ["DBMS", "SQL"],
+            rounds: 2,
+            roundDetails: "SQL test, HR",
+            questions: "Complex SQL queries",
+            tips: "Master SQL joins",
+            postedBy: "Test User 4",
+            userId: "test4@example.com",
+            upvotes: 3,
+            upvotedBy: [],
+            createdAt: new Date()
+        }
+    ];
+    
+    console.log("✅ Test posts created! Total:", allPosts.length);
+    renderPosts(allPosts);
+    renderMyPosts();
+}
+
+console.log("💡 DEBUGGING TIPS:");
+console.log("  • quickTest()       ← Start here! Quick overview");
+console.log("  • debugInfo()       ← Detailed info on posts & tabs");
+console.log("  • testAPI()         ← Check what backend returns");
+console.log("  • loadPosts()       ← Force reload from server");
+console.log("  • createTestPosts() ← Load test data");
+console.log("");
+
+function debugInfo() {
+    console.clear();
+    console.log("====== 🔍 DEBUG INFO ======");
+    console.log("\n📑 ACTIVE TAB:", currentTab);
+    console.log("👤 Current User:", currentUser ? `${currentUser.name} (${currentUser.email})` : "NOT LOGGED IN");
+    console.log("\n📊 POSTS IN MEMORY:");
+    console.log("  Total in allPosts:", allPosts.length);
+    if (allPosts.length > 0) {
+        console.log("  Companies: ", [...new Set(allPosts.map(p => p.company))].join(", "));
+        console.log("  Sample posts:");
+        allPosts.slice(0, 5).forEach((p, i) => {
+            const isOwn = currentUser && p.userId && currentUser.email && 
+                          p.userId.toLowerCase() === currentUser.email.toLowerCase();
+            console.log(`    [${i+1}] ${p.company} - ${p.role} by ${p.userId} ${isOwn ? '✓ YOUR POST' : '✗ OTHER USER'}`);
+        });
+        if (allPosts.length > 5) {
+            console.log(`    ... and ${allPosts.length - 5} more`);
+        }
+    }
+    
+    console.log("\n🎨 WHAT'S BEING DISPLAYED:");
+    const exploreTab = document.getElementById("exploreTab");
+    const myPostsTab = document.getElementById("myPostsTab");
+    const postsGrid = document.getElementById("postsGrid");
+    const myPostsGrid = document.getElementById("myPostsGrid");
+    
+    const exploreVisible = exploreTab && exploreTab.classList.contains("active-tab");
+    const myPostsVisible = myPostsTab && myPostsTab.classList.contains("active-tab");
+    
+    console.log("  Explore Tab visible:", exploreVisible);
+    if (postsGrid) {
+        const cards = postsGrid.querySelectorAll(".post-card");
+        console.log("    Posts displayed: " + cards.length);
+        if (cards.length > 0) {
+            console.log("    Companies shown:", [...new Set([...cards].map(c => c.querySelector(".company-badge")?.textContent))].join(", "));
+        }
+    }
+    
+    console.log("  My Posts Tab visible:", myPostsVisible);
+    if (myPostsGrid) {
+        const cards = myPostsGrid.querySelectorAll(".post-card");
+        console.log("    Posts displayed: " + cards.length);
+    }
+    
+    console.log("\n✅ END DEBUG INFO =====\n");
+}
+
+function reloadAllPosts() {
+    console.log("🔄 Reloading all posts from API...");
+    loadPosts();
+    setTimeout(() => {
+        console.log("✅ Posts reloaded!");
+        debugInfo();
+    }, 1000);
+}
+
+async function testAPI() {
+    console.log("\n🧪 TESTING API ENDPOINTS:");
+    try {
+        // Test: Get ALL posts
+        console.log("\n1️⃣  Testing GET /api/posts (ALL POSTS)");
+        const allRes = await fetch(`${API}/posts`);
+        const allData = await allRes.json();
+        console.log("   Response status:", allRes.status);
+        console.log("   Posts count:", Array.isArray(allData) ? allData.length : "NOT AN ARRAY");
+        if (Array.isArray(allData) && allData.length > 0) {
+            const companies = [...new Set(allData.map(p => p.company))];
+            console.log("   Companies:", companies.join(", "));
+            console.log("   First 3 posts:");
+            allData.slice(0, 3).forEach(p => {
+                console.log(`     - ${p.company} - ${p.role} by ${p.userId}`);
+            });
+        } else {
+            console.log("   ❌ No posts returned!");
+        }
+        
+        // Test: Get user's posts
+        if (currentUser && currentUser.email) {
+            console.log("\n2️⃣  Testing GET /api/posts/my/" + currentUser.email);
+            const userRes = await fetch(`${API}/posts/my/${currentUser.email}`);
+            const userData = await userRes.json();
+            console.log("   Response status:", userRes.status);
+            console.log("   Your posts count:", Array.isArray(userData) ? userData.length : "NOT AN ARRAY");
+        }
+        
+        console.log("\n✅ API test complete\n");
+    } catch (err) {
+        console.error("❌ API test error:", err);
+    }
+}
+
+function quickTest() {
+    console.clear();
+    console.log("🧪 QUICK TEST - Check these values:");
+    console.log("\n1. How many posts are loaded?");
+    console.log("   allPosts.length =", allPosts.length);
+    
+    console.log("\n2. What's the active tab?");
+    console.log("   currentTab =", currentTab);
+    
+    console.log("\n3. Sample posts loaded:");
+    if (allPosts.length > 0) {
+        allPosts.slice(0, 3).forEach(p => {
+            console.log(`   - ${p.company} - ${p.role}`);
+        });
+    } else {
+        console.log("   (No posts loaded - try: loadPosts() or createTestPosts())");
+    }
+    
+    console.log("\n📌 Next steps:");
+    if (allPosts.length === 0) {
+        console.log("   → Run: loadPosts()");
+    } else {
+        console.log("   → Try selecting a company from the dropdown");
+        console.log("   → Check console for filter logs");
+    }
+}
+
 // ===== LOAD AND RENDER POSTS =====
 async function loadPosts() {
     try {
+        console.log("📥 Loading posts from API:", `${API}/posts`);
         const res = await fetch(`${API}/posts`);
+        
         if (!res.ok) {
-            console.error("Posts API error:", res.status);
+            console.error("❌ Posts API error:", res.status, res.statusText);
+            showToast("Failed to load posts from server", "error");
             renderPosts([]);
             return;
         }
-        const data = await res.json();
-        allPosts = data || [];
-<<<<<<< HEAD
         
-        // Debug: Log all posts with their userIds
-        console.log("📋 All Posts loaded:", allPosts.length);
-        console.log("👤 Current User:", currentUser);
-        allPosts.forEach(p => {
-            console.log(`  - ${p.company} (${p.role}) by userId: "${p.userId}"`);
+        const data = await res.json();
+        
+        // Ensure data is an array
+        if (!Array.isArray(data)) {
+            console.error("❌ API returned non-array data:", data);
+            allPosts = [];
+        } else {
+            allPosts = data;
+        }
+        
+        // Sort all posts by latest date (newest first)
+        allPosts.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+            return dateB - dateA;  // Newest first
         });
         
-=======
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
-        renderPosts(data);
+        // Debug: Log all posts with their details
+        console.log("✅ Posts loaded successfully!");
+        console.log("📊 Total posts from API:", allPosts.length);
+        console.log("👤 Current User:", currentUser);
+        
+        if (allPosts.length > 0) {
+            console.log("📋 All posts from database (NOT filtered by user):");
+            allPosts.forEach((p, i) => {
+                const isOwn = currentUser && p.userId && currentUser.email && 
+                              p.userId.toLowerCase() === currentUser.email.toLowerCase();
+                console.log(`  [${i+1}] ${p.company} - ${p.role} by ${p.userId} ${isOwn ? '(YOUR POST)' : '(OTHER USER)'}`);
+            });
+        } else {
+            console.warn("⚠️ No posts found in database - API might be down or database is empty");
+        }
+        
+        // Render all posts in Explore tab
+        renderPosts(allPosts);
+        
+        // Render only user's posts in My Posts tab
+        renderMyPosts();
     } catch (err) {
-        console.error("Error loading posts:", err);
+        console.error("❌ Error loading posts:", err);
+        showToast("Connection error. Make sure the server is running", "error");
         renderPosts([]);
     }
 }
 
 function renderPosts(posts) {
     const grid = document.getElementById("postsGrid");
-    if (!grid) {
-        console.error("postsGrid element not found");
+    if (!grid) return;
+    
+    if (!posts || posts.length === 0) {
+        grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div><h3>No posts yet</h3><p>Be the first to share your interview experience!</p></div>`;
         return;
     }
-
-    const list = posts || allPosts;
-
-    if (!list || !list.length) {
-        grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><h3>No experiences found</h3><p>Try adjusting your filters or search term.</p></div>`;
-        return;
-    }
-
-    try {
-<<<<<<< HEAD
-        grid.innerHTML = list.map(post => createPostCard(post, false)).join("");
-=======
-        grid.innerHTML = list.map(post => createPostCard(post)).join("");
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
-    } catch (err) {
-        console.error("Error rendering posts:", err);
-        grid.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Error loading posts</h3></div>`;
-    }
+    
+    grid.innerHTML = posts.map(post => createPostCard(post, false)).join("");
 }
 
 async function renderMyPosts() {
     try {
-<<<<<<< HEAD
         if (!currentUser || !currentUser.email) {
             console.warn("⚠️ currentUser not set or email missing:", currentUser);
             const grid = document.getElementById("myPostsGrid");
@@ -639,30 +1360,26 @@ async function renderMyPosts() {
         }
 
         console.log("📥 Loading my posts for:", currentUser.email);
-=======
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
-        const res = await fetch(`${API}/posts/my/${currentUser.email}`);
-        if (!res.ok) {
-            const grid = document.getElementById("myPostsGrid");
-            if (grid) grid.innerHTML = `<div class="empty-state"><div class="empty-icon">✍️</div><h3>No posts yet</h3><p>Share your first interview experience!</p></div>`;
+        
+        let myPosts = allPosts.filter(p => p.userId && p.userId.toLowerCase() === currentUser.email.toLowerCase());
+        
+        // Sort by latest date (newest first)
+        myPosts.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+            return dateB - dateA;  // Newest first
+        });
+        
+        const grid = document.getElementById("myPostsGrid");
+        
+        if (!grid) return;
+        
+        if (myPosts.length === 0) {
+            grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div><h3>No posts yet</h3><p>Share your first interview experience!</p></div>`;
             return;
         }
         
-        const myPosts = await res.json();
-        const grid = document.getElementById("myPostsGrid");
-        if (!grid) return;
-
-        if (!myPosts || !myPosts.length) {
-            grid.innerHTML = `<div class="empty-state"><div class="empty-icon">✍️</div><h3>No posts yet</h3><p>Share your first interview experience!</p></div>`;
-            return;
-        }
-
-<<<<<<< HEAD
-        console.log("✅ Loaded", myPosts.length, "posts. Current user:", currentUser.email);
         grid.innerHTML = myPosts.map(post => createPostCard(post, true)).join("");
-=======
-        grid.innerHTML = myPosts.map(post => createPostCard(post)).join("");
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
     } catch (err) {
         console.error("Error loading my posts:", err);
         const grid = document.getElementById("myPostsGrid");
@@ -670,39 +1387,44 @@ async function renderMyPosts() {
     }
 }
 
-<<<<<<< HEAD
 function createPostCard(post, isMyPosts = false) {
     try {
         const postId = post._id || post.id;
-=======
-function createPostCard(post) {
-    try {
-        // 1. Define postId first to fix the ReferenceError
-        const postId = post._id || post.id;
-
-        // 2. Logic for your original outcome and difficulty colors
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
-        const outcomeClass = post.outcome?.includes("✅") ? "outcome-selected"
-            : post.outcome?.includes("❌") ? "outcome-rejected" : "outcome-pending";
-
-        const diffColor = post.difficulty === "Hard" ? "#ef4444" : post.difficulty === "Medium" ? "#f59e0b" : "#22c55e";
-
-<<<<<<< HEAD
-        const topicsHtml = (post.topics || []).map(t => `<span class="topic-chip">${t}</span>`).join("");
-        
-        let dateStr = post.date || new Date(post.createdAt).toLocaleDateString();
+        const outcomeClass = getOutcomeClass(post.outcome);
+        const topicsHtml = renderCompactTopicChips(post.topics || [], 4);
+        const dateStr = formatExperienceDate(post);
+        const companyInitials = getCompanyInitials(post.company);
+        const metadataHtml = `
+            <div class="post-meta-row">
+                <span class="meta-pill"><i class="fas fa-map-marker-alt"></i><span>${escapeHtml(post.type || "N/A")}</span></span>
+                <span class="meta-pill"><i class="fas fa-redo"></i><span>${escapeHtml(`${post.rounds || "N/A"} Rounds`)}</span></span>
+            </div>
+            <div class="post-meta-row post-meta-row-secondary">
+                <span class="meta-pill"><i class="fas fa-chart-line"></i><span>${escapeHtml(`${post.difficulty || "N/A"} Difficulty`)}</span></span>
+                <span class="meta-pill"><i class="fas fa-calendar-alt"></i><span>${escapeHtml(dateStr)}</span></span>
+            </div>`;
 
         // Check if current user already upvoted
         const hasUpvoted = currentUser && post.upvotedBy && post.upvotedBy.includes(currentUser.email);
-        const upvoteButtonStyle = hasUpvoted ? "color: #ff6b6b;" : "";
 
-        // Check if current user is the post creator
-        const isOwnPost = currentUser && post.userId && currentUser.email && 
-                         post.userId.toLowerCase() === currentUser.email.toLowerCase();
+        // Check if current user is the post creator - very explicit check
+        let isOwnPost = false;
+        if (currentUser && currentUser.email && post.userId) {
+            const userEmail = currentUser.email.toLowerCase().trim();
+            const postEmail = post.userId.toLowerCase().trim();
+            isOwnPost = (userEmail === postEmail);
+            
+            // Additional check: if isMyPosts is true, this is definitely own post
+            if (isMyPosts) {
+                isOwnPost = true;
+            }
+        }
+        
+        console.log(`🔍 Post ID: ${postId}, Posted by: ${post.postedBy}, userId: ${post.userId}, Current user: ${currentUser?.email}, isOwnPost: ${isOwnPost}, isMyPosts: ${isMyPosts}`);
         
         // Show action buttons ONLY in My Posts section and only for own posts
         const actionButtons = (isMyPosts && isOwnPost) ? `
-            <div class="post-actions">
+            <div class="post-row-actions" onclick="event.stopPropagation();">
                 <button class="action-btn edit-btn" onclick="openEditModal('${postId}')" title="Edit post">
                     <i class="fas fa-edit"></i> Edit
                 </button>
@@ -712,52 +1434,51 @@ function createPostCard(post) {
             </div>
         ` : "";
 
-=======
-        // 3. Logic for tags and upvote active state
-        const topicsHtml = (post.topics || []).map(t => `<span class="topic-chip">${t}</span>`).join("");
-        const isUpvoted = currentUser && post.upvotedBy && post.upvotedBy.includes(currentUser.email);
-        const activeClass = isUpvoted ? "active" : "";
-        
-        let dateStr = post.date || (post.createdAt ? new Date(post.createdAt).toLocaleDateString() : "Recent");
-
-        // 4. Returning your ORIGINAL HTML structure
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         return `
-        <div class="post-card" onclick="viewPost('${postId}')">
-            <div class="post-card-top">
-                <div class="post-company-row">
-                    <span class="company-badge">${post.company || "N/A"}</span>
-                    ${post.outcome ? `<span class="outcome-badge ${outcomeClass}">${post.outcome}</span>` : ""}
+        <div class="post-card" onclick="viewPost('${postId}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();viewPost('${postId}')}"
+            aria-label="View interview experience for ${escapeHtml(post.company || 'N/A')}">
+            <div class="post-card-main">
+                <div class="post-left">
+                    <div class="post-company-block">
+                        <div class="company-avatar">${companyInitials}</div>
+                        <div>
+                            <div class="post-company-name">${post.company || "N/A"}</div>
+                            <div class="post-role">${post.role || "N/A"}</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="post-role">${post.role || "N/A"}</div>
-                <div class="post-meta">
-                    ${post.type ? `<span><i class="fas fa-briefcase"></i> ${post.type}</span>` : ""}
-                    ${post.difficulty ? `<span style="color:${diffColor}"><i class="fas fa-signal"></i> ${post.difficulty}</span>` : ""}
-                    ${post.rounds ? `<span><i class="fas fa-layer-group"></i> ${post.rounds} Rounds</span>` : ""}
-                    <span><i class="fas fa-calendar"></i> ${dateStr}</span>
+
+                <div class="post-mid">
+                    <div class="post-meta-block">
+                        ${metadataHtml}
+                    </div>
+                    <div class="post-topics">${topicsHtml}</div>
                 </div>
-                <div class="post-topics">${topicsHtml}</div>
+
+                <div class="post-right">
+                    <div class="post-right-top">
+                        <span class="outcome-badge ${outcomeClass}">${post.outcome || "Pending"}</span>
+                        <div class="post-upvotes">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>${post.upvotes || 0}</span>
+                        </div>
+                    </div>
+                    <div class="post-right-bottom">
+                        <button class="post-cta" type="button" tabindex="-1" onclick="event.stopPropagation(); viewPost('${postId}')">
+                            <span>View Details</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                        <span class="posted-by">by ${post.postedBy || "Anonymous"}</span>
+                    </div>
+                </div>
             </div>
-<<<<<<< HEAD
             ${actionButtons}
-            <div class="post-card-bottom">
-                <span class="posted-by">by ${post.postedBy || "Anonymous"}</span>
-                <button class="upvote-btn" onclick="upvote(event, '${postId}')" style="${upvoteButtonStyle}" title="${hasUpvoted ? 'Remove upvote' : 'Upvote this experience'}">
-=======
-            <div class="post-card-bottom">
-                <span class="posted-by">by ${post.postedBy || "Anonymous"}</span>
-                <button class="upvote-btn ${activeClass}" onclick="upvote(event, '${postId}')">
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
-                    <i class="fas fa-arrow-up"></i> ${post.upvotes || 0}
-                </button>
-            </div>
         </div>`;
     } catch (err) {
         console.error("Error creating post card:", err, post);
         return "";
     }
 }
-<<<<<<< HEAD
 
 // Quick delete without opening edit modal
 async function deletePostQuick(postId) {
@@ -791,132 +1512,101 @@ async function deletePostQuick(postId) {
     }
 }
 
-=======
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
-// ===== VIEW EXPERIENCE =====
-function viewPost(id) {
-    const post = allPosts.find(p => p._id === id || p.id === id);
-    if (!post) {
-        console.error("Post not found:", id);
-        return;
-    }
-
-    try {
-        const outcomeClass = post.outcome?.includes("✅") ? "outcome-selected"
-            : post.outcome?.includes("❌") ? "outcome-rejected" : "outcome-pending";
-
-        let dateStr = post.date || new Date(post.createdAt).toLocaleDateString();
-
-        document.getElementById("viewModalContent").innerHTML = `
-            <span class="close" onclick="closeViewModal()">&times;</span>
-            <div class="view-company">${post.company || "N/A"}</div>
-            <div class="view-role">${post.role || "N/A"}</div>
-            <div class="view-badges">
-                ${post.outcome ? `<span class="outcome-badge ${outcomeClass}">${post.outcome}</span>` : ""}
-                ${post.difficulty ? `<span class="outcome-badge" style="background:#f1f5f9;color:#475569">${post.difficulty}</span>` : ""}
-                ${post.type ? `<span class="outcome-badge" style="background:#ede9fe;color:#7c3aed">${post.type}</span>` : ""}
-                ${(post.topics || []).map(t => `<span class="topic-chip">${t}</span>`).join("")}
-            </div>
-            <div class="view-section">
-                <h4>📋 Interview Rounds (${post.rounds || 0} total)</h4>
-                <pre>${post.roundDetails || "No details provided"}</pre>
-            </div>
-            ${post.questions ? `<div class="view-section"><h4>❓ Questions Asked</h4><pre>${post.questions}</pre></div>` : ""}
-            ${post.tips ? `<div class="view-section"><h4>💡 Preparation Tips</h4><pre>${post.tips}</pre></div>` : ""}
-            <div style="color:#94a3b8;font-size:13px;margin-top:16px;">Shared by <strong>${post.postedBy || "Anonymous"}</strong> · ${dateStr}</div>
-        `;
-        document.getElementById("viewModal").style.display = "block";
-    } catch (err) {
-        console.error("Error displaying post:", err);
-        showToast("Error loading post details", "error");
-    }
-}
-
-<<<<<<< HEAD
-// ===== UPVOTE/UNUPVOTE =====
-async function upvote(e, id) {
-    e.stopPropagation();
-    
-    if (!currentUser || !currentUser.email) {
-        showToast("Please login to upvote", "error");
-        return;
-    }
-
-    try {
-        const res = await fetch(`${API}/posts/${id}/upvote?email=${currentUser.email}`, {
-            method: "PUT"
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-            const message = data.upvoted ? "Upvoted successfully! 👍" : "Upvote removed";
-            showToast(message, "success");
-            loadPosts();
-        } else {
-            showToast(data.msg || "Failed to update upvote", "error");
-        }
-    } catch (err) {
-        console.error("Error upvoting:", err);
-        showToast("Error updating upvote", "error");
-=======
-// ===== UPVOTE =====
-async function upvote(e, id) {
-    e.stopPropagation();
-    const btn = e.currentTarget;
-    
-    // Prevent double-clicking while request is pending
-    if (btn.classList.contains('loading')) return;
-    btn.classList.add('loading');
-
-    try {
-        const res = await fetch(`${API}/posts/${id}/upvote`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: currentUser.email })
-        });
-
-        if (res.ok) {
-            // Refresh posts to show updated count and active state
-            await loadPosts(); 
-        }
-    } catch (err) {
-        console.error("Error upvoting:", err);
-    } finally {
-        btn.classList.remove('loading');
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
-    }
-}
-
 // ===== FILTER POSTS =====
 function filterPosts() {
-    const search = document.getElementById("searchInput").value.toLowerCase();
-    const company = document.getElementById("filterCompany").value;
-    const role = document.getElementById("filterRole").value;
-    const difficulty = document.getElementById("filterDifficulty").value;
-    const topic = document.getElementById("filterTopic").value;
+    // Safety check: make sure we have posts loaded
+    if (!allPosts || allPosts.length === 0) {
+        console.warn("⚠️ No posts loaded yet. Loading from API...");
+        loadPosts();
+        return;
+    }
+
+    const searchInput = document.getElementById("searchInput");
+    const companySelect = document.getElementById("filterCompany");
+    const roleSelect = document.getElementById("filterRole");
+    const difficultySelect = document.getElementById("filterDifficulty");
+    const topicSelect = document.getElementById("filterTopic");
+    const sortSelect = document.getElementById("sortBy");
+    
+    const search = (searchInput ? searchInput.value.trim().toLowerCase() : "");
+    const company = (companySelect ? companySelect.value.trim().toLowerCase() : "");
+    const role = (roleSelect ? roleSelect.value.trim().toLowerCase() : "");
+    const difficulty = (difficultySelect ? difficultySelect.value.trim().toLowerCase() : "");
+    const topic = (topicSelect ? topicSelect.value.trim().toLowerCase() : "");
+    const sortBy = (sortSelect ? sortSelect.value : "latest");
+
+    console.log("🔍 Filtering with:", { search, company, role, difficulty, topic, sortBy });
+    console.log("📋 Total posts to filter:", allPosts.length);
 
     const filtered = allPosts.filter(p => {
+        // Search filter (case-insensitive, searches across multiple fields)
         const matchSearch = !search ||
-            p.company.toLowerCase().includes(search) ||
-            p.role.toLowerCase().includes(search) ||
+            (p.company || "").toLowerCase().includes(search) ||
+            (p.role || "").toLowerCase().includes(search) ||
             (p.topics || []).some(t => t.toLowerCase().includes(search)) ||
             (p.roundDetails || "").toLowerCase().includes(search);
 
-        const matchCompany = !company || p.company === company;
-        const matchRole = !role || p.role === role;
-        const matchDiff = !difficulty || p.difficulty === difficulty;
-        const matchTopic = !topic || (p.topics || []).includes(topic);
+        // Company filter (case-insensitive: Google, google, GOOGLE all match)
+        const matchCompany = !company || (p.company || "").trim().toLowerCase() === company;
+        
+        // Role filter (case-insensitive: SDE, sde, SDE all match)
+        const matchRole = !role || (p.role || "").trim().toLowerCase() === role;
+        
+        // Difficulty filter (case-insensitive comparison)
+        const matchDiff = !difficulty || (p.difficulty || "").trim().toLowerCase() === difficulty;
+        
+        // Topic filter (case-insensitive - check if topic exists in array)
+        const matchTopic = !topic || (p.topics || []).some(t => t.trim().toLowerCase() === topic);
 
-        return matchSearch && matchCompany && matchRole && matchDiff && matchTopic;
+        const matches = matchSearch && matchCompany && matchRole && matchDiff && matchTopic;
+        
+        if (matches) {
+            console.log(`  ✅ ${p.company} - ${p.role} (${p.difficulty})`);
+        }
+
+        return matches;
     });
 
+    console.log("📊 Results: " + filtered.length + " posts match out of " + allPosts.length);
+    
+    // Apply sorting based on selected sort option
+    filtered.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        const upvotesA = a.upvotes || 0;
+        const upvotesB = b.upvotes || 0;
+
+        if (sortBy === "highest") {
+            // Sort by highest votes first, then by newest date for ties
+            if (upvotesB !== upvotesA) {
+                return upvotesB - upvotesA;  // Highest votes first
+            }
+            return dateB - dateA;  // If same upvotes, show newer first
+        } else if (sortBy === "oldest") {
+            // Sort by oldest date first
+            return dateA - dateB;
+        } else {
+            // Default: "latest" - sort by newest date first
+            return dateB - dateA;
+        }
+    });
+    
+    if (sortBy === "highest") {
+        console.log("   Sorted by highest votes: " + filtered.map(p => p.company + " (" + (p.upvotes || 0) + " votes)").join(", "));
+    } else if (sortBy === "oldest") {
+        console.log("   Sorted by oldest date: " + filtered.map(p => p.company + " (" + new Date(p.createdAt).toLocaleDateString() + ")").join(", "));
+    } else {
+        console.log("   Sorted by latest date: " + filtered.map(p => p.company + " (" + new Date(p.createdAt).toLocaleDateString() + ")").join(", "));
+    }
+    
     renderPosts(filtered);
 }
 
 // ===== TABS =====
 function showTab(tabName) {
     currentTab = tabName;
+    currentViewMode = "listing";
+    currentDetailsPostId = null;
     document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active-tab"));
     document.querySelectorAll(".nav-tab").forEach(b => b.classList.remove("active"));
 
@@ -925,6 +1615,13 @@ function showTab(tabName) {
         if (exploreTab) exploreTab.classList.add("active-tab");
         const navTabs = document.querySelectorAll(".nav-tab");
         if (navTabs[0]) navTabs[0].classList.add("active");
+        // Reset filters and show all posts
+        document.getElementById("searchInput").value = "";
+        document.getElementById("filterCompany").value = "";
+        document.getElementById("filterRole").value = "";
+        document.getElementById("filterDifficulty").value = "";
+        document.getElementById("filterTopic").value = "";
+        renderPosts(allPosts);  // Show all posts without filters
     } else if (tabName === "my-posts") {
         const myPostsTab = document.getElementById("myPostsTab");
         if (myPostsTab) myPostsTab.classList.add("active-tab");
@@ -953,6 +1650,99 @@ function renderProfile() {
     document.getElementById("profilePostCount").textContent = userPosts.length;
     document.getElementById("profileUpvotes").textContent = totalUpvotes;
     document.getElementById("profileExperiences").textContent = userPosts.length;
+    
+    // Generate and display user initials
+    const name = currentUser.name || "User";
+    const initials = name
+        .split(" ")
+        .map(word => word.charAt(0))
+        .join("")
+        .toUpperCase()
+        .slice(0, 2) || "U";
+    document.getElementById("profileInitials").textContent = initials;
+}
+
+// ===== UPVOTE SYSTEM =====
+async function upvote(event, postId) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (!currentUser || !currentUser.email) {
+        showToast("Please log in to upvote", "error");
+        return;
+    }
+
+    // Check if user is trying to upvote their own post
+    const post = allPosts.find(p => p._id === postId);
+    if (post && post.userId && post.userId.toLowerCase() === currentUser.email.toLowerCase()) {
+        showToast("You cannot upvote your own post", "error");
+        return;
+    }
+
+    try {
+        if (!post) return;
+
+        // Store original state for rollback
+        const originalUpvotes = post.upvotes;
+        const originalUpvotedBy = post.upvotedBy ? [...post.upvotedBy] : [];
+        const wasUpvoted = post.upvotedBy && post.upvotedBy.includes(currentUser.email);
+        
+        // Optimistic update - update UI immediately
+        if (wasUpvoted) {
+            post.upvotes -= 1;
+            post.upvotedBy = post.upvotedBy.filter(u => u !== currentUser.email);
+        } else {
+            post.upvotes += 1;
+            if (!post.upvotedBy) post.upvotedBy = [];
+            post.upvotedBy.push(currentUser.email);
+        }
+
+        // Re-render immediately for fast UI
+        if (currentTab === "explore") {
+            filterPosts();  // Re-apply filters instead of showing all posts
+        } else if (currentTab === "my-posts") {
+            renderMyPosts();
+        }
+        if (currentViewMode === "details" && currentDetailsPostId) {
+            renderExperienceDetails(allPosts.find(p => (p._id || p.id) === currentDetailsPostId));
+        }
+
+        // Send request to server in background
+        const res = await fetch(`${API}/posts/${postId}/upvote`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: currentUser.email })
+        });
+
+        if (!res.ok) {
+            // Revert on error
+            post.upvotes = originalUpvotes;
+            post.upvotedBy = originalUpvotedBy;
+            if (currentTab === "explore") {
+                filterPosts();  // Re-apply filters instead of showing all posts
+            } else if (currentTab === "my-posts") {
+                renderMyPosts();
+            }
+            if (currentViewMode === "details" && currentDetailsPostId) {
+                renderExperienceDetails(allPosts.find(p => (p._id || p.id) === currentDetailsPostId));
+            }
+            const errorData = await res.json();
+            showToast(errorData.msg || "Failed to upvote", "error");
+        } else {
+            // Show success message
+            showToast(wasUpvoted ? "Upvote removed" : "Successfully upvoted! 👍", "success");
+        }
+    } catch (err) {
+        console.error("Error upvoting:", err);
+        showToast("Connection error", "error");
+    }
+}
+
+// ===== VIEW POST =====
+async function viewPost(postId) {
+    const post = allPosts.find(p => p._id === postId);
+    if (!post) return;
+    openExperienceDetails(postId);
 }
 
 // ===== TOAST =====
@@ -964,4 +1754,197 @@ function showToast(msg, type = "") {
     setTimeout(() => t.classList.add("show"), 10);
     setTimeout(() => t.classList.remove("show"), 3500);
 }
+
+// ===== AUTOCOMPLETE FUNCTIONALITY =====
+
+// Get predefined companies for autocomplete
+function getUniqueCompanies() {
+    return PREDEFINED_COMPANIES;
+}
+
+// Get predefined roles for autocomplete
+function getUniqueRoles() {
+    return PREDEFINED_ROLES;
+}
+
+// Filter and display company suggestions
+function filterCompanyAutocomplete(inputId, dropdownId) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    
+    if (!input || !dropdown) {
+        console.warn(`❌ Elements not found: input=${inputId}, dropdown=${dropdownId}`);
+        return;
+    }
+    
+    const searchTerm = input.value.toLowerCase().trim();
+    const companies = getUniqueCompanies();
+    
+    // Filter companies that contain the search term
+    let filtered = [];
+    if (searchTerm.length > 0) {
+        filtered = companies.filter(company => 
+            company.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    console.log(`✅ Company search: "${searchTerm}" -> Found ${filtered.length} matches:`, filtered);
+    
+    // Update dropdown
+    if (filtered.length === 0 || searchTerm.length === 0) {
+        dropdown.innerHTML = "";
+        dropdown.style.display = "none";
+        console.log("📌 Hiding dropdown (no matches or empty search)");
+    } else {
+        dropdown.innerHTML = filtered.map(company => 
+            `<div class="autocomplete-item" data-value="${company}" onclick="selectCompany(this)">${company}</div>`
+        ).join("");
+        dropdown.style.display = "block";
+        console.log("✅ Showing dropdown with HTML:", dropdown.innerHTML);
+        console.log("📍 Dropdown computed style:", window.getComputedStyle(dropdown).display);
+    }
+}
+
+// Filter and display role suggestions
+function filterRoleAutocomplete(inputId, dropdownId) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    
+    if (!input || !dropdown) {
+        console.warn(`❌ Elements not found: input=${inputId}, dropdown=${dropdownId}`);
+        return;
+    }
+    
+    const searchTerm = input.value.toLowerCase().trim();
+    const roles = getUniqueRoles();
+    
+    // Filter roles that contain the search term
+    let filtered = [];
+    if (searchTerm.length > 0) {
+        filtered = roles.filter(role => 
+            role.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    console.log(`✅ Role search: "${searchTerm}" -> Found ${filtered.length} matches:`, filtered);
+    
+    // Update dropdown
+    if (filtered.length === 0 || searchTerm.length === 0) {
+        dropdown.innerHTML = "";
+        dropdown.style.display = "none";
+        console.log("📌 Hiding dropdown (no matches or empty search)");
+    } else {
+        dropdown.innerHTML = filtered.map(role => 
+            `<div class="autocomplete-item" data-value="${role}" onclick="selectRole(this)">${role}</div>`
+        ).join("");
+        dropdown.style.display = "block";
+        console.log("✅ Showing dropdown with HTML:", dropdown.innerHTML);
+        console.log("📍 Dropdown computed style:", window.getComputedStyle(dropdown).display);
+    }
+}
+
+// Select a company from autocomplete
+function selectCompany(element) {
+    const value = element.getAttribute("data-value");
+    document.getElementById("postCompany").value = value;
+    document.getElementById("postCompanyDropdown").style.display = "none";
+    document.getElementById("postCompanyDropdown").innerHTML = "";
+}
+
+// Select a role from autocomplete
+function selectRole(element) {
+    const value = element.getAttribute("data-value");
+    document.getElementById("postRole").value = value;
+    document.getElementById("postRoleDropdown").style.display = "none";
+    document.getElementById("postRoleDropdown").innerHTML = "";
+}
+
+// Also handle edit modal autocomplete
+function selectEditCompany(element) {
+    const value = element.getAttribute("data-value");
+    document.getElementById("editCompany").value = value;
+    document.getElementById("editCompanyDropdown").style.display = "none";
+    document.getElementById("editCompanyDropdown").innerHTML = "";
+}
+
+function selectEditRole(element) {
+    const value = element.getAttribute("data-value");
+    document.getElementById("editRole").value = value;
+    document.getElementById("editRoleDropdown").style.display = "none";
+    document.getElementById("editRoleDropdown").innerHTML = "";
+}
+
+// Filter for edit modal company
+function filterEditCompanyAutocomplete(inputId, dropdownId) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    
+    if (!input || !dropdown) {
+        return;
+    }
+    
+    const searchTerm = input.value.toLowerCase().trim();
+    const companies = getUniqueCompanies();
+    
+    let filtered = [];
+    if (searchTerm.length > 0) {
+        filtered = companies.filter(company => 
+            company.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    if (filtered.length === 0 || searchTerm.length === 0) {
+        dropdown.innerHTML = "";
+        dropdown.style.display = "none";
+    } else {
+        dropdown.innerHTML = filtered.map(company => 
+            `<div class="autocomplete-item" data-value="${company}" onclick="selectEditCompany(this)">${company}</div>`
+        ).join("");
+        dropdown.style.display = "block";
+    }
+}
+
+// Filter for edit modal role
+function filterEditRoleAutocomplete(inputId, dropdownId) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    
+    if (!input || !dropdown) {
+        return;
+    }
+    
+    const searchTerm = input.value.toLowerCase().trim();
+    const roles = getUniqueRoles();
+    
+    let filtered = [];
+    if (searchTerm.length > 0) {
+        filtered = roles.filter(role => 
+            role.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    if (filtered.length === 0 || searchTerm.length === 0) {
+        dropdown.innerHTML = "";
+        dropdown.style.display = "none";
+    } else {
+        dropdown.innerHTML = filtered.map(role => 
+            `<div class="autocomplete-item" data-value="${role}" onclick="selectEditRole(this)">${role}</div>`
+        ).join("");
+        dropdown.style.display = "block";
+    }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener("click", function(event) {
+    const containers = document.querySelectorAll(".autocomplete-container");
+    containers.forEach(container => {
+        if (!container.contains(event.target)) {
+            const dropdown = container.querySelector(".autocomplete-dropdown");
+            if (dropdown) {
+                dropdown.innerHTML = "";
+                dropdown.style.display = "none";
+            }
+        }
+    });
+});
 

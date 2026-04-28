@@ -2,22 +2,21 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-<<<<<<< HEAD
-=======
-const passport = require("passport");
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this";
 
 // ===== SIGNUP =====
 router.post("/signup", async (req, res) => {
+    console.log("📝 Signup request received");
+    console.log("Request body:", req.body);
+    
     const { name, email, password } = req.body;
 
     try {
-<<<<<<< HEAD
         // Validation
         if (!name || !email || !password) {
+            console.error("❌ Missing fields - name:", name, "email:", email, "password:", password ? "***" : "undefined");
             return res.status(400).json({ msg: "Please provide all required fields" });
         }
 
@@ -25,12 +24,6 @@ router.post("/signup", async (req, res) => {
         if (user) return res.status(400).json({ msg: "User already exists" });
 
         if (password.length < 6) {
-=======
-        let user = await User.findOne({ email });
-        if (user) return res.status(400).json({ msg: "User already exists" });
-
-        if (!password || password.length < 6) {
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
             return res.status(400).json({ msg: "Password must be at least 6 characters" });
         }
 
@@ -54,16 +47,10 @@ router.post("/signup", async (req, res) => {
         res.json({
             msg: "User registered successfully",
             token,
-<<<<<<< HEAD
             user: { name: user.name, email: user.email, id: user._id }
         });
     } catch (err) {
         console.error("Signup error:", err);
-=======
-            user: { name: user.name, email: user.email }
-        });
-    } catch (err) {
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         res.status(500).json({ error: err.message });
     }
 });
@@ -73,14 +60,11 @@ router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     try {
-<<<<<<< HEAD
         // Validation
         if (!email || !password) {
             return res.status(400).json({ msg: "Please provide email and password" });
         }
 
-=======
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
         let user = await User.findOne({ email });
         if (!user) return res.status(400).json({ msg: "User not found" });
 
@@ -94,71 +78,35 @@ router.post("/login", async (req, res) => {
         );
 
         res.json({
-<<<<<<< HEAD
             msg: "Login successful",
             token,
             user: { name: user.name, email: user.email, id: user._id }
         });
     } catch (err) {
         console.error("Login error:", err);
-=======
-            token,
-            user: { name: user.name, email: user.email }
-        });
-    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
 // ===== GOOGLE AUTH =====
-router.get("/google",
-    passport.authenticate("google", { scope: ["profile", "email"] })
-);
+// router.get("/google",
+//     passport.authenticate("google", { scope: ["profile", "email"] })
+// );
 
-router.get("/google/callback",
-    passport.authenticate("google", { session: false }),
-    (req, res) => {
-        try {
-            const token = jwt.sign(
-                { id: req.user._id, name: req.user.name, email: req.user.email },
-                JWT_SECRET,
-                { expiresIn: "7d" }
-            );
-            res.redirect(`http://localhost:8080/landpage.html?token=${token}&name=${req.user.name}&email=${req.user.email}`);
-        } catch (err) {
-            res.status(500).json({ error: err.message });
-        }
-    }
-);
-
-// ===== GET CURRENT USER (IMPORTANT 🔥)
-// routes/posts.js
-router.put("/:id/upvote", async (req, res) => {
-    try {
-        const { userId } = req.body;
-        const post = await Post.findById(req.params.id);
-
-        if (!post) return res.status(404).json({ msg: "Post not found" });
-
-        const index = post.upvotedBy.indexOf(userId);
-
-        if (index > -1) {
-            // User already upvoted -> Remove it (Toggle off)
-            post.upvotedBy.splice(index, 1);
-        } else {
-            // User hasn't upvoted -> Add it (Toggle on)
-            post.upvotedBy.push(userId);
-        }
-
-        // Always set count based on array length to prevent bugs
-        post.upvotes = post.upvotedBy.length;
-        
-        await post.save();
-        res.json(post);
-    } catch (err) {
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
-        res.status(500).json({ error: err.message });
-    }
-});
+// router.get("/google/callback",
+//     passport.authenticate("google", { session: false }),
+//     (req, res) => {
+//         try {
+//             const token = jwt.sign(
+//                 { id: req.user._id, name: req.user.name, email: req.user.email },
+//                 JWT_SECRET,
+//                 { expiresIn: "7d" }
+//             );
+//             res.redirect(`http://localhost:8080/landpage.html?token=${token}&name=${req.user.name}&email=${req.user.email}`);
+//         } catch (err) {
+//             res.status(500).json({ error: err.message });
+//         }
+//     }
+// );
 
 module.exports = router;

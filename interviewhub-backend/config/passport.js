@@ -28,7 +28,6 @@ async (accessToken, refreshToken, profile, done) => {
         console.error("Google Auth Error:", err);
         return done(err);
     }
-<<<<<<< HEAD
 }));
 
 // Serialize user
@@ -45,6 +44,3 @@ passport.deserializeUser(async (id, done) => {
         done(err);
     }
 });
-=======
-}));
->>>>>>> d934338a2f8ea1efffb6dedd1e77b79451624a72
